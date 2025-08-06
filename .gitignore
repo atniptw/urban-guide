@@ -137,3 +137,30 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build outputs
+dist/
+build/
+*.js.map
+
+# Test coverage
+coverage/
+*.lcov
+
+# Environment files
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Debug
+debug.log
+error.log
