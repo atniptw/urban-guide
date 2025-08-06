@@ -38,11 +38,37 @@ npm run typecheck
 The system consists of six core components that work together to orchestrate AI-driven development workflows:
 
 1. **CLI Interface** (`src/cli/`) - Command parsing and user interaction using Commander.js
-2. **Workflow Engine** (`src/engine/`) - Executes workflow steps, handles conditionals/loops, manages retry logic
-3. **Agent Manager** (`src/agents/`) - Manages role-based AI agents (Tech Lead, Developer, QA)
-4. **State Manager** (`src/state/`) - Persists workflow state to enable resume functionality
-5. **Template Engine** (`src/templates/`) - Generates prompts from YAML templates with context injection
-6. **AI Interface** (`src/ai/`) - Abstraction layer for AI communication (manual copy-paste initially, API integration later)
+2. **Core Types** (`src/core/`) - TypeScript interfaces and types for workflows, agents, and state
+3. **Workflow Engine** (`src/engine/`) - Executes workflow steps, handles conditionals/loops, manages retry logic
+4. **Agent Manager** (`src/agents/`) - Manages role-based AI agents (Tech Lead, Developer, QA)
+5. **State Manager** (`src/state/`) - Persists workflow state to enable resume functionality
+6. **Template Engine** (`src/templates/`) - Generates prompts from YAML templates with context injection
+7. **AI Interface** (`src/ai/`) - Abstraction layer for AI communication (manual copy-paste initially, API integration later)
+
+## Core Types
+
+The `src/core/` module contains all TypeScript definitions:
+
+### Key Interfaces
+- `Workflow` - Main workflow definition with steps, inputs, and outputs
+- `Step` - Individual workflow step (ai-prompt, script, validation, loop, conditional)
+- `Agent` - Role-based AI agent configuration with capabilities and memory
+- `WorkflowState` - Complete execution state for resumable workflows
+- `Context` - Execution context with inputs, variables, and outputs
+
+### Error Classes
+- `WorkflowError` - Workflow execution failures
+- `ValidationError` - Input/configuration validation failures
+- `IntegrationError` - External service integration failures
+- `StepExecutionError` - Individual step execution failures
+
+### Constants
+- Configuration directory paths
+- Default values and limits
+- Agent roles and workflow statuses
+- Exit codes for CLI operations
+
+Import core types: `import { Workflow, WorkflowError, DEFAULT_CONFIG } from './src/core'`
 
 ## Technology Stack
 
