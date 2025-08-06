@@ -65,6 +65,26 @@ aiflow/
 - Node.js >= 18.0.0
 - TypeScript 5.0+
 
+## Contributing
+
+Please see [CONTRIBUTING.md](docs/CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+### Quality Standards
+
+All pull requests must pass automated quality checks:
+- ✅ TypeScript compilation (strict mode)
+- ✅ ESLint validation (no errors)
+- ✅ Prettier formatting
+- ✅ Test suite with 90% coverage
+- ✅ Successful production build
+
+## CI/CD
+
+This project uses GitHub Actions for continuous integration:
+- **PR Quality Checks**: Automated testing and validation on all pull requests
+- **Coverage Reporting**: Automatic coverage reports posted to PRs
+- **Node.js 20.x**: Tests run on the latest LTS version
+
 ## License
 
 MIT

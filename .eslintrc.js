@@ -26,11 +26,20 @@ module.exports = {
     '@typescript-eslint/no-floating-promises': 'error',
     '@typescript-eslint/await-thenable': 'error',
     '@typescript-eslint/no-misused-promises': 'error',
+    '@typescript-eslint/unbound-method': ['error', { ignoreStatic: true }],
     'no-console': ['warn', { allow: ['warn', 'error'] }],
     'prefer-const': 'error',
     'no-var': 'error',
     'eqeqeq': ['error', 'always'],
     'curly': ['error', 'all'],
   },
+  overrides: [
+    {
+      files: ['**/*.test.ts', '**/*.spec.ts'],
+      rules: {
+        '@typescript-eslint/unbound-method': 'off',
+      },
+    },
+  ],
   ignorePatterns: ['dist', 'node_modules', 'coverage', '*.config.js'],
 };
