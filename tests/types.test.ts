@@ -15,6 +15,8 @@ import {
   StepExecution,
   WorkflowStatus,
   StepStatus,
+  RetryErrorPattern,
+  RetryPolicy,
 } from '../src/core/types';
 import {
   WorkflowError,
@@ -112,6 +114,34 @@ describe('Core Type Definitions', () => {
 
       expect(loopStep.type).toBe('loop');
       expect(loopStep.items).toBe('context.testFiles');
+    });
+
+    it('should enforce type safety for retry error patterns', () => {
+      // Valid retry patterns
+      const validPatterns: RetryErrorPattern[] = [
+        'timeout',
+        'api_error',
+        'network_error',
+        'rate_limit',
+        'server_error',
+        'authentication_error',
+        'validation_error',
+        'resource_unavailable',
+        'temporary_failure',
+      ];
+
+      const retryPolicy: RetryPolicy = {
+        maxAttempts: 3,
+        backoffMs: 1000,
+        retryOn: validPatterns,
+      };
+
+      expect(retryPolicy.retryOn).toEqual(validPatterns);
+      expect(retryPolicy.retryOn).toHaveLength(9);
+
+      // Test individual pattern assignment
+      const singlePattern: RetryErrorPattern = 'timeout';
+      expect(singlePattern).toBe('timeout');
     });
   });
 

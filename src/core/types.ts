@@ -70,12 +70,26 @@ export interface OutputMapping {
 }
 
 /**
+ * Allowed error patterns for retry policies
+ */
+export type RetryErrorPattern =
+  | 'timeout'
+  | 'api_error'
+  | 'network_error'
+  | 'rate_limit'
+  | 'server_error'
+  | 'authentication_error'
+  | 'validation_error'
+  | 'resource_unavailable'
+  | 'temporary_failure';
+
+/**
  * Retry configuration for steps
  */
 export interface RetryPolicy {
   maxAttempts: number;
   backoffMs: number;
-  retryOn?: string[]; // error patterns
+  retryOn?: RetryErrorPattern[];
 }
 
 // ============================================================================
