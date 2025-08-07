@@ -40,6 +40,12 @@ module.exports = {
         '@typescript-eslint/unbound-method': 'off',
       },
     },
+    {
+      files: ['src/cli/**/*.ts'],
+      rules: {
+        'no-console': ['warn', { allow: ['warn', 'error', 'log'] }],
+      },
+    },
   ],
   ignorePatterns: ['dist', 'node_modules', 'coverage', '*.config.js'],
 };
