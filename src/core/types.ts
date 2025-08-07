@@ -27,7 +27,7 @@ export interface InputDefinition {
   type: 'string' | 'number' | 'boolean' | 'object' | 'array';
   description?: string;
   required?: boolean;
-  default?: unknown;
+  default?: string | number | boolean | Record<string, unknown> | unknown[];
 }
 
 /**
@@ -143,8 +143,8 @@ export interface StepExecution {
   startedAt: Date;
   completedAt?: Date;
   status: StepStatus;
-  inputs: unknown;
-  outputs: unknown;
+  inputs: Record<string, unknown>;
+  outputs: Record<string, unknown>;
   error?: string;
   retryCount?: number;
 }
