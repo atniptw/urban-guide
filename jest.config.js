@@ -15,29 +15,27 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
-  // TODO: Re-enable coverage thresholds once core implementation is complete
-  // Coverage thresholds temporarily disabled for foundational type system PR
-  // Target thresholds for future implementation:
-  // coverageThreshold: {
-  //   global: {
-  //     branches: 80,
-  //     functions: 90,
-  //     lines: 90,
-  //     statements: 90,
-  //   },
-  //   './src/core/**/*.ts': {
-  //     branches: 90,
-  //     functions: 90,
-  //     lines: 90,
-  //     statements: 90,
-  //   },
-  //   './src/agents/**/*.ts': {
-  //     branches: 90,
-  //     functions: 90,
-  //     lines: 90,
-  //     statements: 90,
-  //   },
-  // },
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 90,
+      lines: 90,
+      statements: 90,
+    },
+    './src/core/**/*.ts': {
+      branches: 90,
+      functions: 90,
+      lines: 90,
+      statements: 90,
+    },
+    // TODO: Uncomment when agents module is implemented
+    // './src/agents/**/*.ts': {
+    //   branches: 90,
+    //   functions: 90,
+    //   lines: 90,
+    //   statements: 90,
+    // },
+  },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },

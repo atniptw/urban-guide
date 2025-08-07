@@ -188,8 +188,7 @@ export class WorkflowLoader {
     }
 
     try {
-      const validated = WorkflowSchema.parse(data);
-      return validated as Workflow;
+      return WorkflowSchema.parse(data);
     } catch (error: unknown) {
       if (error instanceof z.ZodError) {
         const errors = error.errors.map((e) => ({

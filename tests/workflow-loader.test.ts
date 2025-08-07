@@ -227,6 +227,33 @@ outputs: []
 
       await expect(loader.loadWorkflow('test-workflow')).rejects.toEqual(permissionError);
     });
+
+    it('should propagate non-ZodError validation errors', async () => {
+      const validWorkflow = `
+id: test-workflow
+name: Test Workflow
+description: A test workflow
+version: 1.0.0
+inputs: []
+steps: []
+outputs: []
+`;
+      mockFs.readFile.mockResolvedValueOnce(validWorkflow);
+
+      // Mock yaml.load to throw a non-Error object to test the error path in parseAndValidateWorkflow
+      const yaml = require('js-yaml');
+      const originalLoad = yaml.load;
+      const customError = new TypeError('Custom YAML parsing error');
+      
+      jest.spyOn(yaml, 'load').mockImplementationOnce(() => {
+        throw customError;
+      });
+
+      await expect(loader.loadWorkflow('test-workflow')).rejects.toThrow(ValidationError);
+
+      // Restore original implementation
+      yaml.load = originalLoad;
+    });
   });
 
   describe('listWorkflows', () => {
@@ -331,6 +358,16 @@ id: test-workflow
 
       expect(result.valid).toBe(false);
       expect(result.errors).toEqual([{ field: 'general', message: 'File not found' }]);
+    });
+
+    it('should handle non-Error objects in error handling', async () => {
+      // Reject with a non-Error object to test the String(error) path
+      mockFs.readFile.mockRejectedValueOnce('string error');
+
+      const result = await loader.validateWorkflowFile('/path/to/invalid.yaml');
+
+      expect(result.valid).toBe(false);
+      expect(result.errors).toEqual([{ field: 'general', message: 'string error' }]);
     });
   });
 
