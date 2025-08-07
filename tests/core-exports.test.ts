@@ -16,6 +16,8 @@ import {
   ValidationError,
   IntegrationError,
   isAiflowError,
+  // WorkflowLoader
+  WorkflowLoader,
 } from '../src/core';
 
 describe('Core Module Exports', () => {
@@ -28,6 +30,16 @@ describe('Core Module Exports', () => {
     expect(typeof ValidationError).toBe('function');
     expect(typeof IntegrationError).toBe('function');
     expect(typeof isAiflowError).toBe('function');
+    expect(typeof WorkflowLoader).toBe('function');
+  });
+
+  it('should create WorkflowLoader instance', () => {
+    const loader = new WorkflowLoader();
+    expect(loader).toBeInstanceOf(WorkflowLoader);
+    expect(typeof loader.loadWorkflow).toBe('function');
+    expect(typeof loader.listWorkflows).toBe('function');
+    expect(typeof loader.validateWorkflowFile).toBe('function');
+    expect(typeof loader.getSearchDirectories).toBe('function');
   });
 
   it('should create instances with correct types', () => {
