@@ -63,7 +63,10 @@ function handleCommandError(operation: string, error: unknown): void {
     console.error(chalk.red(`❌ Error: ${error.message}`));
     process.exit(EXIT_CODES.validationError);
   } else {
-    console.error(chalk.red(`❌ Failed to ${operation}:`), error instanceof Error ? error.message : 'Unknown error');
+    console.error(
+      chalk.red(`❌ Failed to ${operation}:`),
+      error instanceof Error ? error.message : 'Unknown error'
+    );
     process.exit(EXIT_CODES.generalError);
   }
 }
@@ -89,15 +92,15 @@ program
   .action((workflowId: string, options: RunOptions) => {
     try {
       console.log(chalk.blue(`🚀 Starting workflow: ${workflowId}`));
-      
+
       // Validate workflow ID
       validateNonEmptyString(workflowId, 'Workflow ID');
 
       // Parse JSON input if provided
-      let inputs = {};
+      let inputs: Record<string, unknown> = {};
       if (options.input) {
         try {
-          inputs = JSON.parse(options.input);
+          inputs = JSON.parse(options.input) as Record<string, unknown>;
         } catch (error) {
           throw new ValidationError('Invalid JSON format in --input option');
         }
@@ -117,7 +120,6 @@ program
       // TODO: Integrate with workflow engine when available
       console.log(chalk.yellow('⚠️  Workflow engine not yet implemented'));
       console.log(chalk.gray('This command will execute the workflow when the engine is ready'));
-      
     } catch (error) {
       handleCommandError('start workflow', error);
     }
@@ -136,7 +138,7 @@ program
       if (options.sessionId) {
         // Validate session ID format
         validateNonEmptyString(options.sessionId, 'Session ID');
-        
+
         if (options.verbose) {
           console.log(chalk.gray('Session ID:'), options.sessionId);
         }
@@ -148,7 +150,6 @@ program
       // TODO: Integrate with state manager and workflow engine when available
       console.log(chalk.yellow('⚠️  State manager not yet implemented'));
       console.log(chalk.gray('This command will resume workflows when the state manager is ready'));
-
     } catch (error) {
       handleCommandError('continue workflow', error);
     }
@@ -178,7 +179,6 @@ program
       // TODO: Integrate with state manager when available
       console.log(chalk.yellow('⚠️  No active workflows found'));
       console.log(chalk.gray('Workflow status will be displayed when sessions exist'));
-
     } catch (error) {
       handleCommandError('get status', error);
     }
@@ -206,7 +206,6 @@ program
       // TODO: Integrate with workflow loader when available
       console.log(chalk.yellow('⚠️  No workflows found'));
       console.log(chalk.gray('Workflows will be listed when workflow files are available'));
-
     } catch (error) {
       handleCommandError('list workflows', error);
     }
@@ -231,7 +230,6 @@ program
       // TODO: Integrate with workflow loader when available
       console.log(chalk.yellow('⚠️  Workflow loader not yet implemented'));
       console.log(chalk.gray('Workflow details will be displayed when the loader is ready'));
-
     } catch (error) {
       handleCommandError('show workflow', error);
     }
@@ -255,7 +253,7 @@ program
       }
 
       console.log(chalk.blue('📤 Exporting session data'));
-      
+
       const sessionInfo = options.sessionId || 'most recent session';
       const format = options.format || 'json';
       console.log(chalk.gray(`Session: ${sessionInfo}`));
@@ -264,8 +262,9 @@ program
 
       // TODO: Integrate with state manager when available
       console.log(chalk.yellow('⚠️  State manager not yet implemented'));
-      console.log(chalk.gray('Export functionality will be available when the state manager is ready'));
-
+      console.log(
+        chalk.gray('Export functionality will be available when the state manager is ready')
+      );
     } catch (error) {
       handleCommandError('export data', error);
     }
