@@ -59,6 +59,10 @@ export interface Step {
   retryPolicy?: RetryPolicy;
   outputs?: OutputMapping[];
   expectedExitCode?: number; // for script steps
+  // AI-specific properties
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
 }
 
 /**

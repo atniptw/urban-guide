@@ -18,6 +18,7 @@ import { Step, Context, RetryPolicy, RetryErrorPattern } from '../core/types';
 import { StepExecutionError, ValidationError } from '../core/errors';
 import { TemplateEngine } from '../templates/template-engine';
 import { logger } from '../utils/logger';
+import { AIInterface, ManualInterface } from '../ai';
 
 /**
  * Result of step execution
@@ -42,9 +43,11 @@ interface StepContext extends Context {
  */
 export class StepExecutor {
   private templateEngine: TemplateEngine;
+  private aiInterface: AIInterface;
 
-  constructor(templateEngine?: TemplateEngine) {
+  constructor(templateEngine?: TemplateEngine, aiInterface?: AIInterface) {
     this.templateEngine = templateEngine || new TemplateEngine();
+    this.aiInterface = aiInterface || new ManualInterface();
   }
 
   /**
@@ -120,23 +123,51 @@ export class StepExecutor {
       );
     }
 
-    // For now, this is a placeholder - would need AI Interface integration
-    // TODO: Integrate with AI Interface when it's implemented
-    logger.debug(`AI PROMPT Step ${step.id}: Would execute AI prompt with agent ${step.agent}`);
+    const agent = step.agent || 'default';
+    logger.debug(`AI PROMPT Step ${step.id}: Executing AI prompt with agent ${agent}`);
 
-    if (step.template) {
-      const prompt = this.templateEngine.render(step.template, context.variables);
-      logger.debug(`AI PROMPT Generated prompt:\n${prompt}`);
+    try {
+      // Generate the prompt using template engine
+      let prompt: string;
+      if (step.template) {
+        prompt = this.templateEngine.render(step.template, context.variables);
+        logger.debug(`AI PROMPT Generated prompt:\n${prompt}`);
+      } else {
+        // If no template, create a basic prompt with context
+        prompt = `Please assist with the following task as a ${agent}:\n\nContext: ${JSON.stringify(
+          context.variables,
+          null,
+          2
+        )}`;
+      }
+
+      // Send prompt to AI interface
+      const aiResponse = await this.aiInterface.sendPrompt(prompt, agent, {
+        model: step.model,
+        temperature: step.temperature,
+        maxTokens: step.maxTokens,
+      });
+
+      logger.info(`AI PROMPT Step ${step.id}: Received response from ${agent}`);
+
+      return {
+        outputs: {
+          ai_response: aiResponse.content,
+          prompt_used: prompt,
+          agent_used: agent,
+          model_used: aiResponse.model,
+          timestamp: aiResponse.timestamp.toISOString(),
+          usage: aiResponse.usage,
+        },
+        shouldContinue: true,
+      };
+    } catch (error) {
+      throw new StepExecutionError(
+        `AI prompt execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'unknown-workflow',
+        step.id
+      );
     }
-
-    // Placeholder return - would normally contain AI response
-    return {
-      outputs: {
-        ai_response: 'Placeholder AI response - AI Interface not yet implemented',
-        prompt_used: step.template || 'Agent-specific prompt',
-      },
-      shouldContinue: true,
-    };
   }
 
   /**
