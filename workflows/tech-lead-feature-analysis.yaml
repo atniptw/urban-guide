@@ -43,7 +43,8 @@ outputs:
 variables:
   github_issue_data: {}
   requirements_analysis: {}
-  missing_requirements: []
+  gap_analysis: ""
+  clarification_questions: ""
   development_tasks: []
   target_repo_info: {}
 
@@ -229,7 +230,7 @@ steps:
   - id: handle-gaps
     type: conditional
     name: Handle Requirements Gaps
-    condition: "gap_analysis !== 'REQUIREMENTS_COMPLETE'"
+    condition: "context.variables.gap_analysis !== 'REQUIREMENTS_COMPLETE'"
     
     steps:
       # Step 5a: Generate Clarification Questions
@@ -306,7 +307,7 @@ steps:
     type: ai-prompt
     name: Break Down into Development Tasks
     description: Create detailed, actionable development tasks
-    condition: "gap_analysis === 'REQUIREMENTS_COMPLETE' || context.variables.clarification_questions"
+    condition: "context.variables.gap_analysis === 'REQUIREMENTS_COMPLETE' || context.variables.clarification_questions"
     agent: tech-lead
     template: |
       # Development Task Breakdown
@@ -376,7 +377,7 @@ steps:
     type: script
     name: Create GitHub Issues for Development Tasks
     description: Create GitHub issues for each development task with proper formatting
-    condition: "development_tasks && development_tasks.length > 0"
+    condition: "context.variables.development_tasks && context.variables.development_tasks.length > 0"
     script: |
       const { GitHubIntegration } = require('../src/integrations/github');
       const { ConsoleLogger } = require('../src/utils/logger');
