@@ -37,6 +37,42 @@ interface ExportOptions {
 
 const program = new Command();
 
+// Custom validation error class
+class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
+// Shared validation functions
+function validateNonEmptyString(value: string | undefined, fieldName: string): void {
+  if (!value || typeof value !== 'string' || value.trim().length === 0) {
+    throw new ValidationError(`${fieldName} is required and must be a non-empty string`);
+  }
+}
+
+function validateFormat(format: string | undefined, allowedFormats: string[]): void {
+  if (format && !allowedFormats.includes(format)) {
+    throw new ValidationError(`Format must be one of: ${allowedFormats.join(', ')}`);
+  }
+}
+
+function handleCommandError(operation: string, error: unknown): void {
+  if (error instanceof ValidationError) {
+    console.error(chalk.red(`❌ Error: ${error.message}`));
+    process.exit(EXIT_CODES.validationError);
+  } else {
+    console.error(chalk.red(`❌ Failed to ${operation}:`), error instanceof Error ? error.message : 'Unknown error');
+    process.exit(EXIT_CODES.generalError);
+  }
+}
+
+// Supported format constants
+const TABLE_JSON_FORMATS = ['table', 'json'];
+const YAML_JSON_FORMATS = ['yaml', 'json'];
+const EXPORT_FORMATS = ['json', 'markdown'];
+
 program
   .name('aiflow')
   .description('AI Workflow Orchestrator - Manage AI agents for development tasks')
@@ -55,10 +91,7 @@ program
       console.log(chalk.blue(`🚀 Starting workflow: ${workflowId}`));
       
       // Validate workflow ID
-      if (!workflowId || typeof workflowId !== 'string' || workflowId.trim().length === 0) {
-        console.error(chalk.red('❌ Error: Workflow ID is required and must be a non-empty string'));
-        process.exit(EXIT_CODES.validationError);
-      }
+      validateNonEmptyString(workflowId, 'Workflow ID');
 
       // Parse JSON input if provided
       let inputs = {};
@@ -66,8 +99,7 @@ program
         try {
           inputs = JSON.parse(options.input);
         } catch (error) {
-          console.error(chalk.red('❌ Error: Invalid JSON format in --input option'));
-          process.exit(EXIT_CODES.validationError);
+          throw new ValidationError('Invalid JSON format in --input option');
         }
       }
 
@@ -87,8 +119,7 @@ program
       console.log(chalk.gray('This command will execute the workflow when the engine is ready'));
       
     } catch (error) {
-      console.error(chalk.red('❌ Failed to start workflow:'), error instanceof Error ? error.message : 'Unknown error');
-      process.exit(EXIT_CODES.generalError);
+      handleCommandError('start workflow', error);
     }
   });
 
@@ -104,10 +135,7 @@ program
 
       if (options.sessionId) {
         // Validate session ID format
-        if (typeof options.sessionId !== 'string' || options.sessionId.trim().length === 0) {
-          console.error(chalk.red('❌ Error: Session ID must be a non-empty string'));
-          process.exit(EXIT_CODES.validationError);
-        }
+        validateNonEmptyString(options.sessionId, 'Session ID');
         
         if (options.verbose) {
           console.log(chalk.gray('Session ID:'), options.sessionId);
@@ -122,8 +150,7 @@ program
       console.log(chalk.gray('This command will resume workflows when the state manager is ready'));
 
     } catch (error) {
-      console.error(chalk.red('❌ Failed to continue workflow:'), error instanceof Error ? error.message : 'Unknown error');
-      process.exit(EXIT_CODES.generalError);
+      handleCommandError('continue workflow', error);
     }
   });
 
@@ -138,17 +165,11 @@ program
       console.log(chalk.blue('📊 Workflow Status'));
 
       // Validate format option
-      if (options.format && !['table', 'json'].includes(options.format)) {
-        console.error(chalk.red('❌ Error: Format must be either "table" or "json"'));
-        process.exit(EXIT_CODES.validationError);
-      }
+      validateFormat(options.format, TABLE_JSON_FORMATS);
 
       if (options.sessionId) {
         // Validate session ID
-        if (typeof options.sessionId !== 'string' || options.sessionId.trim().length === 0) {
-          console.error(chalk.red('❌ Error: Session ID must be a non-empty string'));
-          process.exit(EXIT_CODES.validationError);
-        }
+        validateNonEmptyString(options.sessionId, 'Session ID');
         console.log(chalk.blue(`Status for session: ${options.sessionId}`));
       } else {
         console.log(chalk.blue('Status for all active sessions'));
@@ -159,8 +180,7 @@ program
       console.log(chalk.gray('Workflow status will be displayed when sessions exist'));
 
     } catch (error) {
-      console.error(chalk.red('❌ Failed to get status:'), error instanceof Error ? error.message : 'Unknown error');
-      process.exit(EXIT_CODES.generalError);
+      handleCommandError('get status', error);
     }
   });
 
@@ -174,16 +194,12 @@ program
     try {
       // Validate type argument
       if (type !== 'workflows') {
-        console.error(chalk.red('❌ Error: Only "workflows" type is currently supported'));
         console.log(chalk.gray('Usage: aiflow list workflows'));
-        process.exit(EXIT_CODES.validationError);
+        throw new ValidationError('Only "workflows" type is currently supported');
       }
 
       // Validate format option
-      if (options.format && !['table', 'json'].includes(options.format)) {
-        console.error(chalk.red('❌ Error: Format must be either "table" or "json"'));
-        process.exit(EXIT_CODES.validationError);
-      }
+      validateFormat(options.format, TABLE_JSON_FORMATS);
 
       console.log(chalk.blue('📋 Available Workflows'));
 
@@ -192,8 +208,7 @@ program
       console.log(chalk.gray('Workflows will be listed when workflow files are available'));
 
     } catch (error) {
-      console.error(chalk.red('❌ Failed to list workflows:'), error instanceof Error ? error.message : 'Unknown error');
-      process.exit(EXIT_CODES.generalError);
+      handleCommandError('list workflows', error);
     }
   });
 
@@ -205,16 +220,10 @@ program
   .action((workflowId: string, options: ShowOptions) => {
     try {
       // Validate workflow ID
-      if (!workflowId || typeof workflowId !== 'string' || workflowId.trim().length === 0) {
-        console.error(chalk.red('❌ Error: Workflow ID is required and must be a non-empty string'));
-        process.exit(EXIT_CODES.validationError);
-      }
+      validateNonEmptyString(workflowId, 'Workflow ID');
 
       // Validate format option
-      if (options.format && !['yaml', 'json'].includes(options.format)) {
-        console.error(chalk.red('❌ Error: Format must be either "yaml" or "json"'));
-        process.exit(EXIT_CODES.validationError);
-      }
+      validateFormat(options.format, YAML_JSON_FORMATS);
 
       console.log(chalk.blue(`📄 Workflow Details: ${workflowId}`));
       console.log(chalk.gray(`Format: ${options.format}`));
@@ -224,8 +233,7 @@ program
       console.log(chalk.gray('Workflow details will be displayed when the loader is ready'));
 
     } catch (error) {
-      console.error(chalk.red('❌ Failed to show workflow:'), error instanceof Error ? error.message : 'Unknown error');
-      process.exit(EXIT_CODES.generalError);
+      handleCommandError('show workflow', error);
     }
   });
 
@@ -239,15 +247,11 @@ program
   .action((options: ExportOptions) => {
     try {
       // Validate format option
-      if (options.format && !['json', 'markdown'].includes(options.format)) {
-        console.error(chalk.red('❌ Error: Format must be either "json" or "markdown"'));
-        process.exit(EXIT_CODES.validationError);
-      }
+      validateFormat(options.format, EXPORT_FORMATS);
 
       // Validate session ID if provided
-      if (options.sessionId && (typeof options.sessionId !== 'string' || options.sessionId.trim().length === 0)) {
-        console.error(chalk.red('❌ Error: Session ID must be a non-empty string'));
-        process.exit(EXIT_CODES.validationError);
+      if (options.sessionId) {
+        validateNonEmptyString(options.sessionId, 'Session ID');
       }
 
       console.log(chalk.blue('📤 Exporting session data'));
@@ -263,8 +267,7 @@ program
       console.log(chalk.gray('Export functionality will be available when the state manager is ready'));
 
     } catch (error) {
-      console.error(chalk.red('❌ Failed to export data:'), error instanceof Error ? error.message : 'Unknown error');
-      process.exit(EXIT_CODES.generalError);
+      handleCommandError('export data', error);
     }
   });
 

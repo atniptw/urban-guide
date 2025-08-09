@@ -190,7 +190,7 @@ describe('CLI Enhanced Commands', () => {
       it('should validate session ID is non-empty', async () => {
         const options = { sessionId: '   ' };
         await expect(continueAction(options)).rejects.toThrow('Process exit called with code: 2');
-        expect(consoleErrorSpy).toHaveBeenCalledWith('red:❌ Error: Session ID must be a non-empty string');
+        expect(consoleErrorSpy).toHaveBeenCalledWith('red:❌ Error: Session ID is required and must be a non-empty string');
       });
     });
 
@@ -210,7 +210,7 @@ describe('CLI Enhanced Commands', () => {
       it('should validate format option', async () => {
         const options = { format: 'invalid' };
         await expect(statusAction(options)).rejects.toThrow('Process exit called with code: 2');
-        expect(consoleErrorSpy).toHaveBeenCalledWith('red:❌ Error: Format must be either "table" or "json"');
+        expect(consoleErrorSpy).toHaveBeenCalledWith('red:❌ Error: Format must be one of: table, json');
       });
 
       it('should accept valid format options', async () => {
@@ -234,7 +234,7 @@ describe('CLI Enhanced Commands', () => {
 
       it('should validate format option', async () => {
         await expect(listAction('workflows', { format: 'xml' })).rejects.toThrow('Process exit called with code: 2');
-        expect(consoleErrorSpy).toHaveBeenCalledWith('red:❌ Error: Format must be either "table" or "json"');
+        expect(consoleErrorSpy).toHaveBeenCalledWith('red:❌ Error: Format must be one of: table, json');
       });
     });
 
@@ -251,7 +251,7 @@ describe('CLI Enhanced Commands', () => {
 
       it('should validate format option', async () => {
         await expect(showAction('tech-lead', { format: 'xml' })).rejects.toThrow('Process exit called with code: 2');
-        expect(consoleErrorSpy).toHaveBeenCalledWith('red:❌ Error: Format must be either "yaml" or "json"');
+        expect(consoleErrorSpy).toHaveBeenCalledWith('red:❌ Error: Format must be one of: yaml, json');
       });
 
       it('should accept valid format options', async () => {
@@ -271,12 +271,12 @@ describe('CLI Enhanced Commands', () => {
 
       it('should validate format option', async () => {
         await expect(exportAction({ format: 'xml' })).rejects.toThrow('Process exit called with code: 2');
-        expect(consoleErrorSpy).toHaveBeenCalledWith('red:❌ Error: Format must be either "json" or "markdown"');
+        expect(consoleErrorSpy).toHaveBeenCalledWith('red:❌ Error: Format must be one of: json, markdown');
       });
 
       it('should validate session ID', async () => {
         await expect(exportAction({ sessionId: '  ' })).rejects.toThrow('Process exit called with code: 2');
-        expect(consoleErrorSpy).toHaveBeenCalledWith('red:❌ Error: Session ID must be a non-empty string');
+        expect(consoleErrorSpy).toHaveBeenCalledWith('red:❌ Error: Session ID is required and must be a non-empty string');
       });
 
       it('should handle valid options', async () => {
