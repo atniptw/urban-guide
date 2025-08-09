@@ -1,0 +1,536 @@
+id: tech-lead-feature-analysis
+name: Tech Lead Feature Analysis Workflow
+version: 1.0.0
+description: |
+  Complete Tech Lead workflow for analyzing GitHub issues, identifying requirements gaps,
+  and breaking down features into actionable development tasks with automated GitHub issue creation.
+
+metadata:
+  author: AI Workflow Orchestrator
+  tags: [tech-lead, analysis, github, feature-breakdown]
+  estimated_duration: 15-30 minutes
+
+inputs:
+  - name: github_issue_url
+    type: string
+    description: GitHub issue URL (e.g., https://github.com/owner/repo/issues/123)
+    required: true
+  
+  - name: github_token
+    type: string
+    description: GitHub Personal Access Token for API operations
+    required: false
+    default: "${env:GITHUB_TOKEN}"
+  
+  - name: target_repository
+    type: object
+    description: Target repository for creating task issues (defaults to source issue repo)
+    required: false
+
+outputs:
+  - name: analysis_result
+    type: object
+    description: Complete feature analysis with requirements and gaps
+  
+  - name: created_issues
+    type: array
+    description: List of created GitHub issues for development tasks
+  
+  - name: clarification_questions
+    type: array
+    description: Questions for stakeholders if requirements are incomplete
+
+variables:
+  github_issue_data: {}
+  requirements_analysis: {}
+  missing_requirements: []
+  development_tasks: []
+  target_repo_info: {}
+
+steps:
+  # Step 1: Validate GitHub Authentication
+  - id: validate-github-auth
+    type: script
+    name: Validate GitHub Authentication
+    description: Verify GitHub token and API access
+    script: |
+      const { GitHubIntegration } = require('../src/integrations/github');
+      const { ConsoleLogger } = require('../src/utils/logger');
+      
+      const logger = new ConsoleLogger();
+      const github = new GitHubIntegration({ 
+        token: context.inputs.github_token 
+      }, logger);
+      
+      if (!github.isConfigured()) {
+        throw new Error('GitHub token not configured. Set GITHUB_TOKEN environment variable or provide token input.');
+      }
+      
+      const isValid = await github.validateAuthentication();
+      if (!isValid) {
+        throw new Error('GitHub authentication failed. Check token validity and permissions.');
+      }
+      
+      // Check rate limits
+      const rateLimit = await github.getRateLimit();
+      if (rateLimit.remaining < 10) {
+        throw new Error(`GitHub API rate limit too low: ${rateLimit.remaining} requests remaining`);
+      }
+      
+      return { authenticated: true, rateLimit };
+    on_error:
+      action: fail
+      message: "GitHub authentication or rate limit check failed"
+
+  # Step 2: Fetch GitHub Issue Data
+  - id: fetch-issue
+    type: script
+    name: Fetch GitHub Issue
+    description: Retrieve comprehensive GitHub issue data using SDK
+    script: |
+      const { GitHubIntegration } = require('../src/integrations/github');
+      const { ConsoleLogger } = require('../src/utils/logger');
+      
+      const logger = new ConsoleLogger();
+      const github = new GitHubIntegration({ 
+        token: context.inputs.github_token 
+      }, logger);
+      
+      const issueData = await github.fetchIssue(context.inputs.github_issue_url);
+      
+      // Extract repository information for later use
+      const { owner, repo } = github.parseIssueUrl(context.inputs.github_issue_url);
+      context.variables.target_repo_info = context.inputs.target_repository || { owner, repo };
+      
+      return {
+        issue: issueData,
+        repository: { owner, repo },
+        fetched_at: new Date().toISOString()
+      };
+    outputs:
+      - name: github_issue_data
+        type: "$.issue"
+    on_error:
+      action: fail
+      message: "Failed to fetch GitHub issue data"
+
+  # Step 3: AI Analysis of Requirements
+  - id: analyze-requirements
+    type: ai-prompt
+    name: Analyze Feature Requirements
+    description: Deep analysis of feature requirements and technical considerations
+    agent: tech-lead
+    template: |
+      # Feature Requirements Analysis
+      
+      ## GitHub Issue Information
+      **Issue #{{github_issue_data.number}}**: {{github_issue_data.title}}
+      **Repository**: {{github_issue_data.html_url}}
+      **Created**: {{github_issue_data.created_at}}
+      **Labels**: {{#each github_issue_data.labels}}{{name}} {{/each}}
+      
+      ## Issue Description
+      {{github_issue_data.body}}
+      
+      ## Analysis Instructions
+      As a senior technical lead, analyze this feature request and provide a comprehensive breakdown:
+      
+      ### 1. Requirements Analysis
+      - Identify all functional requirements (what the system should do)
+      - Identify non-functional requirements (performance, security, usability)
+      - Note any assumptions made in the requirements
+      
+      ### 2. Technical Considerations
+      - What technologies/frameworks are likely needed?
+      - What are the main technical challenges?
+      - Are there any architectural implications?
+      - What are the integration points with existing systems?
+      
+      ### 3. Scope and Complexity Assessment
+      - Estimated complexity level (Low/Medium/High)
+      - Estimated effort (hours/days/weeks)
+      - Risk assessment (technical/business risks)
+      
+      ### 4. Dependencies and Prerequisites
+      - What other systems/services are involved?
+      - Are there any blocking dependencies?
+      - What needs to be in place before starting?
+      
+      **Output Format**: Provide your analysis in structured markdown with clear sections.
+      Be thorough but concise. Focus on actionable insights for the development team.
+    
+    outputs:
+      - name: requirements_analysis
+        type: "response.content"
+    
+    validation:
+      required_sections: ["Requirements Analysis", "Technical Considerations", "Scope and Complexity", "Dependencies"]
+      min_length: 500
+    
+    on_error:
+      action: retry
+      max_retries: 2
+      message: "Requirements analysis failed"
+
+  # Step 4: Identify Requirements Gaps
+  - id: identify-gaps
+    type: ai-prompt
+    name: Identify Requirements Gaps
+    description: Analyze for missing or unclear requirements that need clarification
+    agent: tech-lead
+    template: |
+      # Requirements Gap Analysis
+      
+      ## Previous Analysis
+      {{requirements_analysis}}
+      
+      ## Original Issue Description  
+      {{github_issue_data.body}}
+      
+      ## Gap Analysis Instructions
+      Review the requirements analysis and original issue description to identify:
+      
+      ### 1. Missing Information
+      - What critical details are not specified?
+      - What user stories or use cases are incomplete?
+      - Are there missing acceptance criteria?
+      
+      ### 2. Ambiguous Requirements
+      - What statements could be interpreted multiple ways?
+      - Where do we need more specific details?
+      - What assumptions need validation?
+      
+      ### 3. Technical Gaps
+      - Are integration requirements clear?
+      - Are performance requirements specified?
+      - Are security requirements defined?
+      - Is the deployment context clear?
+      
+      ### 4. Business Context Gaps
+      - Is the business value/justification clear?
+      - Are user personas and use cases defined?
+      - Are success metrics specified?
+      
+      **Output Format**: 
+      - If NO significant gaps: Return "REQUIREMENTS_COMPLETE"
+      - If gaps exist: Provide a structured list of specific questions/clarifications needed
+      
+      Be specific in your questions - avoid generic requests for "more information".
+    
+    outputs:
+      - name: gap_analysis
+        type: "response.content"
+    
+    on_error:
+      action: retry
+      max_retries: 2
+
+  # Step 5: Conditional - Handle Requirements Gaps
+  - id: handle-gaps
+    type: conditional
+    name: Handle Requirements Gaps
+    condition: "gap_analysis !== 'REQUIREMENTS_COMPLETE'"
+    
+    steps:
+      # Step 5a: Generate Clarification Questions
+      - id: request-clarification
+        type: ai-prompt
+        name: Generate Clarification Questions
+        description: Create structured questions for stakeholders
+        agent: tech-lead
+        template: |
+          # Stakeholder Clarification Request
+          
+          ## Feature: {{github_issue_data.title}}
+          **Issue**: {{github_issue_data.html_url}}
+          
+          ## Identified Gaps
+          {{gap_analysis}}
+          
+          ## Instructions
+          Transform the identified gaps into clear, actionable questions for stakeholders.
+          Format each question with:
+          - **Question**: The specific question
+          - **Why needed**: Brief explanation of why this information is required
+          - **Impact**: What happens if this isn't clarified
+          
+          Group questions by category (Business, Technical, UX, etc.)
+          
+          **Output Format**: Well-structured markdown suitable for posting as a comment on the GitHub issue.
+        
+        outputs:
+          - name: clarification_questions
+            type: "response.content"
+        
+        on_error:
+          action: fail
+          message: "Failed to generate clarification questions"
+      
+      # Step 5b: Post Clarification Comment (optional - could be manual)
+      - id: post-clarification
+        type: script
+        name: Post Clarification Questions
+        description: Post clarification questions as GitHub issue comment
+        condition: "context.inputs.auto_post_questions === true"
+        script: |
+          const { GitHubIntegration } = require('../src/integrations/github');
+          const { ConsoleLogger } = require('../src/utils/logger');
+          
+          const logger = new ConsoleLogger();
+          const github = new GitHubIntegration({ 
+            token: context.inputs.github_token 
+          }, logger);
+          
+          const { owner, repo } = github.parseIssueUrl(context.inputs.github_issue_url);
+          
+          const comment = `## 🔍 Requirements Analysis Complete - Clarification Needed
+          
+          I've analyzed this feature request and identified some areas that need clarification before development can begin effectively.
+          
+          ${context.variables.clarification_questions}
+          
+          ---
+          *This analysis was generated by the AI Workflow Orchestrator*`;
+          
+          // Note: This would require adding comment creation to GitHubIntegration
+          // For now, we'll just log the clarification
+          logger.info('Clarification questions ready for manual posting');
+          return { comment, posted: false };
+        
+        on_error:
+          action: continue
+          message: "Could not post clarification comment - questions available for manual posting"
+
+  # Step 6: Create Development Tasks (only if requirements are complete or gaps handled)
+  - id: create-tasks
+    type: ai-prompt
+    name: Break Down into Development Tasks
+    description: Create detailed, actionable development tasks
+    condition: "gap_analysis === 'REQUIREMENTS_COMPLETE' || context.variables.clarification_questions"
+    agent: tech-lead
+    template: |
+      # Development Task Breakdown
+      
+      ## Feature Analysis
+      {{requirements_analysis}}
+      
+      {% if gap_analysis !== 'REQUIREMENTS_COMPLETE' %}
+      ## Known Gaps (for planning purposes)
+      {{gap_analysis}}
+      {% endif %}
+      
+      ## Task Creation Instructions
+      Break this feature down into specific, actionable development tasks suitable for individual GitHub issues.
+      
+      ### Task Requirements:
+      1. **Granularity**: Each task should be completable in 1-3 days
+      2. **Independence**: Tasks should have minimal dependencies where possible
+      3. **Clarity**: Each task should be clear enough for any team member
+      4. **Testability**: Each task should have clear done criteria
+      
+      ### Task Format (JSON Array):
+      ```json
+      [
+        {
+          "title": "Clear, actionable task title",
+          "description": "Detailed description with:\n- Specific requirements\n- Acceptance criteria\n- Technical notes\n- Testing requirements",
+          "labels": ["enhancement", "frontend", "backend", etc.],
+          "priority": "high|medium|low",
+          "estimated_hours": number,
+          "dependencies": ["other task titles if any"],
+          "assignee_suggestions": ["optional: suggested team members"]
+        }
+      ]
+      ```
+      
+      ### Task Categories to Consider:
+      - **Research/Investigation** tasks for unclear technical areas
+      - **Database/Schema** changes
+      - **Backend API** development
+      - **Frontend/UI** implementation  
+      - **Integration** tasks
+      - **Testing** tasks (unit, integration, e2e)
+      - **Documentation** tasks
+      - **Deployment/Configuration** tasks
+      
+      **Output**: Return ONLY the JSON array of tasks, no additional text.
+      Ensure the JSON is valid and properly formatted.
+    
+    outputs:
+      - name: development_tasks
+        type: "response.content | fromjson"
+    
+    validation:
+      format: json_array
+      required_fields: ["title", "description", "labels", "priority"]
+      min_tasks: 1
+      max_tasks: 20
+    
+    on_error:
+      action: retry
+      max_retries: 3
+      message: "Failed to create development tasks"
+
+  # Step 7: Create GitHub Issues for Tasks
+  - id: create-github-issues
+    type: script
+    name: Create GitHub Issues for Development Tasks
+    description: Create GitHub issues for each development task with proper formatting
+    condition: "development_tasks && development_tasks.length > 0"
+    script: |
+      const { GitHubIntegration } = require('../src/integrations/github');
+      const { ConsoleLogger } = require('../src/utils/logger');
+      
+      const logger = new ConsoleLogger();
+      const github = new GitHubIntegration({ 
+        token: context.inputs.github_token 
+      }, logger);
+      
+      const repository = context.variables.target_repo_info;
+      const tasks = context.variables.development_tasks;
+      const originalIssue = context.variables.github_issue_data;
+      
+      // Prepare issues for creation
+      const issueOptions = tasks.map(task => ({
+        title: task.title,
+        body: `# Development Task
+        
+        **Parent Feature**: ${originalIssue.title} (#${originalIssue.number})
+        **Parent Issue**: ${originalIssue.html_url}
+        
+        ## Description
+        ${task.description}
+        
+        ## Acceptance Criteria
+        ${task.acceptance_criteria || 'To be defined based on task requirements'}
+        
+        ## Priority
+        ${task.priority.toUpperCase()}
+        
+        ## Estimated Effort
+        ${task.estimated_hours || 'TBD'} hours
+        
+        ${task.dependencies && task.dependencies.length > 0 ? `## Dependencies
+        ${task.dependencies.map(dep => `- ${dep}`).join('\n')}` : ''}
+        
+        ${task.assignee_suggestions && task.assignee_suggestions.length > 0 ? `## Suggested Assignees
+        ${task.assignee_suggestions.map(assignee => `@${assignee}`).join(', ')}` : ''}
+        
+        ---
+        *This task was created by AI Workflow Orchestrator from feature analysis*`,
+        labels: task.labels || ['enhancement'],
+        assignees: task.assignee_suggestions || []
+      }));
+      
+      // Create issues with retry logic
+      logger.info(`Creating ${issueOptions.length} GitHub issues for development tasks`);
+      
+      const createdIssues = await github.createMultipleIssues(
+        repository,
+        issueOptions,
+        { maxRetries: 2, delayMs: 2000 }
+      );
+      
+      logger.info(`Successfully created ${createdIssues.length} GitHub issues`);
+      
+      return {
+        created_issues: createdIssues,
+        repository: repository,
+        total_created: createdIssues.length,
+        created_urls: createdIssues.map(issue => issue.html_url)
+      };
+    
+    outputs:
+      - name: created_issues
+        type: "$.created_issues"
+    
+    on_error:
+      action: fail
+      message: "Failed to create GitHub issues for development tasks"
+
+  # Step 8: Generate Summary Report
+  - id: generate-summary
+    type: ai-prompt
+    name: Generate Analysis Summary
+    description: Create comprehensive summary of the analysis and actions taken
+    agent: tech-lead
+    template: |
+      # Tech Lead Analysis Summary
+      
+      ## Feature Analyzed
+      **{{github_issue_data.title}}** (Issue #{{github_issue_data.number}})  
+      **Repository**: {{target_repo_info.owner}}/{{target_repo_info.repo}}
+      **Analysis Date**: {{current_timestamp}}
+      
+      ## Requirements Analysis Results
+      {{requirements_analysis}}
+      
+      {% if gap_analysis !== 'REQUIREMENTS_COMPLETE' %}
+      ## Requirements Gaps Identified
+      {{gap_analysis}}
+      
+      {% if clarification_questions %}
+      ## Clarification Questions Generated
+      {{clarification_questions}}
+      {% endif %}
+      {% endif %}
+      
+      ## Development Tasks Created
+      {% if created_issues %}
+      Created {{created_issues.length}} GitHub issues for development tasks:
+      
+      {% for issue in created_issues %}
+      - [{{issue.title}}]({{issue.html_url}}) - #{{issue.number}}
+      {% endfor %}
+      {% else %}
+      No development tasks were created due to incomplete requirements.
+      {% endif %}
+      
+      ## Next Steps
+      {% if gap_analysis !== 'REQUIREMENTS_COMPLETE' %}
+      1. **Requirements Clarification**: Address the identified gaps with stakeholders
+      2. **Re-run Analysis**: Once clarifications are received, re-run this workflow
+      3. **Task Creation**: Development tasks will be created after requirements are complete
+      {% else %}
+      1. **Task Assignment**: Assign the created GitHub issues to team members
+      2. **Sprint Planning**: Include these tasks in the next sprint planning session
+      3. **Implementation**: Begin development work following the task breakdown
+      {% endif %}
+      
+      ## Recommendations
+      - Review the created tasks for any additional dependencies
+      - Consider the estimated effort for sprint capacity planning
+      - Ensure all team members understand the technical approach
+      
+      ---
+      **Analysis completed successfully** ✅
+    
+    outputs:
+      - name: analysis_summary
+        type: "response.content"
+    
+    on_error:
+      action: continue
+      message: "Summary generation failed but main workflow completed"
+
+# Workflow Configuration
+configuration:
+  timeout: 1800  # 30 minutes
+  retry_policy:
+    max_retries: 2
+    exponential_backoff: true
+    
+  error_handling:
+    strategy: fail_fast
+    notifications:
+      on_failure: true
+      on_success: true
+      
+  logging:
+    level: info
+    include_sensitive: false
+    
+  ai_settings:
+    default_model: gpt-4
+    default_temperature: 0.7
+    default_max_tokens: 2000
