@@ -64,6 +64,25 @@ describe('Error Classes', () => {
       expect(error.message).toBe('Validation failed');
       expect(error.errors).toBeUndefined();
     });
+
+    it('should create a ValidationError with cause', () => {
+      const originalError = new Error('Original error');
+      const error = new ValidationError('Validation failed', undefined, { cause: originalError });
+
+      expect(error.message).toBe('Validation failed');
+      expect(error.errors).toBeUndefined();
+      expect(error.cause).toBe(originalError);
+    });
+
+    it('should create a ValidationError with both errors and cause', () => {
+      const validationErrors = [{ field: 'name', message: 'Name is required' }];
+      const originalError = new Error('Original parsing error');
+      const error = new ValidationError('Validation failed', validationErrors, { cause: originalError });
+
+      expect(error.message).toBe('Validation failed');
+      expect(error.errors).toEqual(validationErrors);
+      expect(error.cause).toBe(originalError);
+    });
   });
 
   describe('IntegrationError', () => {

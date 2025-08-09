@@ -163,6 +163,26 @@ description: [invalid yaml structure
       await expect(loader.loadWorkflow('test-workflow')).rejects.toThrow(ValidationError);
     });
 
+    it('should throw ValidationError with cause for YAML parsing errors', async () => {
+      const invalidYaml = `
+id: test-workflow
+name: Test Workflow
+description: [invalid yaml structure
+`;
+
+      mockFs.readFile.mockResolvedValueOnce(invalidYaml);
+
+      try {
+        await loader.loadWorkflow('test-workflow');
+        fail('Expected ValidationError to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ValidationError);
+        const validationError = error as ValidationError;
+        expect(validationError.message).toContain('Failed to parse YAML');
+        expect(validationError.cause).toBeDefined();
+      }
+    });
+
     it('should throw ValidationError for invalid step types', async () => {
       const invalidStepWorkflow = `
 id: test-workflow

@@ -183,7 +183,9 @@ export class WorkflowLoader {
       data = yaml.load(content);
     } catch (error: unknown) {
       throw new ValidationError(
-        `Failed to parse YAML in ${filepath}: ${this.getErrorMessage(error)}`
+        `Failed to parse YAML in ${filepath}: ${this.getErrorMessage(error)}`,
+        undefined,
+        { cause: error instanceof Error ? error : undefined }
       );
     }
 
@@ -195,7 +197,7 @@ export class WorkflowLoader {
           field: e.path.join('.'),
           message: e.message,
         }));
-        throw new ValidationError(`Workflow validation failed in ${filepath}`, errors);
+        throw new ValidationError(`Workflow validation failed in ${filepath}`, errors, { cause: error });
       }
       throw error;
     }
