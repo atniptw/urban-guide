@@ -87,6 +87,20 @@ export class GitHubIntegration {
   }
 
   /**
+   * Helper method to map GitHub API assignee responses to our interface format
+   */
+  private mapAssigneesToInterface(
+    assignees: IssuesGetResponseAssignee[] | null | undefined
+  ): Array<{ login: string; id: number }> {
+    return (
+      assignees?.map((assignee: IssuesGetResponseAssignee) => ({
+        login: assignee.login || '',
+        id: assignee.id || 0,
+      })) || []
+    );
+  }
+
+  /**
    * Parse GitHub issue URL or return repository info and issue number
    */
   parseIssueUrl(input: string): { owner: string; repo: string; issueNumber: number } {
@@ -150,13 +164,7 @@ export class GitHubIntegration {
         body: data.body || null,
         state: data.state as 'open' | 'closed',
         labels: this.mapLabelsToInterface(data.labels),
-        assignees:
-          data.assignees?.map((assignee: IssuesGetResponseAssignee) => {
-            return {
-              login: assignee.login || '',
-              id: assignee.id || 0,
-            };
-          }) || [],
+        assignees: this.mapAssigneesToInterface(data.assignees),
         milestone: data.milestone
           ? {
               title: data.milestone.title,
@@ -220,13 +228,7 @@ export class GitHubIntegration {
         body: data.body || null,
         state: data.state as 'open' | 'closed',
         labels: this.mapLabelsToInterface(data.labels),
-        assignees:
-          data.assignees?.map((assignee: IssuesGetResponseAssignee) => {
-            return {
-              login: assignee.login || '',
-              id: assignee.id || 0,
-            };
-          }) || [],
+        assignees: this.mapAssigneesToInterface(data.assignees),
         milestone: data.milestone
           ? {
               title: data.milestone.title,
