@@ -216,7 +216,9 @@ export class StateManager {
         await fs.unlink(currentFile);
       } catch (error) {
         // If we can't delete the old file, log but don't fail
-        console.warn(`Warning: Could not remove old session file ${currentFile}`);
+        console.warn(
+          `Warning: Could not remove old session file ${currentFile}: ${this.getErrorMessage(error)}`
+        );
       }
     }
   }
@@ -286,7 +288,9 @@ export class StateManager {
               });
             } catch (error) {
               // Skip files that can't be parsed
-              console.warn(`Warning: Could not parse session file ${file}`);
+              console.warn(
+                `Warning: Could not parse session file ${file}: ${this.getErrorMessage(error)}`
+              );
             }
           }
         }

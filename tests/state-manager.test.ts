@@ -450,7 +450,7 @@ describe('StateManager', () => {
       const sessions = await stateManager.listSessions('running');
 
       expect(sessions).toHaveLength(1);
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Could not parse session file'));
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Could not parse session file invalid.json: Unexpected token'));
       
       warnSpy.mockRestore();
     });
