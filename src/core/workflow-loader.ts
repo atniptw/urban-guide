@@ -197,7 +197,9 @@ export class WorkflowLoader {
           field: e.path.join('.'),
           message: e.message,
         }));
-        throw new ValidationError(`Workflow validation failed in ${filepath}`, errors, { cause: error });
+        throw new ValidationError(`Workflow validation failed in ${filepath}`, errors, {
+          cause: error,
+        });
       }
       throw error;
     }
