@@ -52,6 +52,7 @@ export interface Step {
   type: StepType;
   agent?: string;
   template?: string;
+  prompt?: string;
   command?: string;
   condition?: string;
   steps?: Step[]; // for conditional and loop steps
@@ -59,6 +60,7 @@ export interface Step {
   retryPolicy?: RetryPolicy;
   outputs?: OutputMapping[];
   expectedExitCode?: number; // for script steps
+  requiredCapabilities?: string[]; // for agent routing
   // AI-specific properties
   model?: string;
   temperature?: number;
