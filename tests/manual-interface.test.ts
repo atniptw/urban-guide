@@ -4,6 +4,7 @@
 
 import { ManualInterface } from '../src/ai/manual-interface';
 import { AIValidationError, AITimeoutError } from '../src/ai/ai-interface';
+import { SilentLogger } from '../src/utils/logger';
 import * as readline from 'readline';
 
 // Mock readline
@@ -17,11 +18,11 @@ describe('ManualInterface', () => {
     on: jest.Mock;
     removeAllListeners: jest.Mock;
   };
+  let silentLogger: SilentLogger;
 
   beforeEach(() => {
-    // Reset console mocks
-    jest.spyOn(console, 'log').mockImplementation();
-    jest.spyOn(console, 'error').mockImplementation();
+    // Create a silent logger for testing
+    silentLogger = new SilentLogger();
 
     // Mock readline interface
     mockReadline = {
@@ -33,7 +34,8 @@ describe('ManualInterface', () => {
 
     (readline.createInterface as jest.Mock).mockReturnValue(mockReadline);
 
-    manualInterface = new ManualInterface();
+    // Create ManualInterface with silent logger
+    manualInterface = new ManualInterface(300000, silentLogger);
   });
 
   afterEach(() => {
@@ -45,12 +47,13 @@ describe('ManualInterface', () => {
 
   describe('constructor', () => {
     it('should create interface with default timeout', () => {
-      const instance = new ManualInterface();
+      const instance = new ManualInterface(300000, silentLogger);
       expect(instance.getName()).toBe('Manual Copy-Paste Interface');
+      instance.close();
     });
 
     it('should create interface with custom timeout', () => {
-      const instance = new ManualInterface(60000);
+      const instance = new ManualInterface(60000, silentLogger);
       expect(instance.getName()).toBe('Manual Copy-Paste Interface');
       instance.close();
     });
@@ -149,7 +152,8 @@ describe('ManualInterface', () => {
         }
       });
 
-      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+      // Spy on the logger methods
+      const loggerInfoSpy = jest.spyOn(silentLogger, 'info');
 
       const prompt = 'Test prompt for AI';
       const agent = 'test-agent';
@@ -166,15 +170,15 @@ describe('ManualInterface', () => {
       await responsePromise;
 
       // Verify prompt display
-      expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect(loggerInfoSpy).toHaveBeenCalledWith(
         expect.stringContaining('🤖 AI Agent: test-agent')
       );
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Model: gpt-4'));
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Temperature: 0.7'));
-      expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect(loggerInfoSpy).toHaveBeenCalledWith(expect.stringContaining('Model: gpt-4'));
+      expect(loggerInfoSpy).toHaveBeenCalledWith(expect.stringContaining('Temperature: 0.7'));
+      expect(loggerInfoSpy).toHaveBeenCalledWith(
         expect.stringContaining('📋 Copy this prompt to your AI tool:')
       );
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining(prompt));
+      expect(loggerInfoSpy).toHaveBeenCalledWith(expect.stringContaining(prompt));
     });
 
     it('should collect and validate user response', async () => {
@@ -246,7 +250,7 @@ describe('ManualInterface', () => {
 
     it('should handle timeout', async () => {
       const shortTimeout = 1000;
-      const timeoutInterface = new ManualInterface(shortTimeout);
+      const timeoutInterface = new ManualInterface(shortTimeout, silentLogger);
 
       // Don't provide any input, let it timeout
       mockReadline.on.mockImplementation((_event, _callback) => {
@@ -310,8 +314,15 @@ describe('ManualInterface', () => {
     });
 
     it('should handle close when readline is not available', () => {
-      const interfaceWithoutRL = new ManualInterface();
-      (interfaceWithoutRL as any).rl = null;
+      // Create a test subclass that exposes rl as public for testing
+      class TestManualInterface extends ManualInterface {
+        public setReadline(rl: any): void {
+          (this as any).rl = rl;
+        }
+      }
+      
+      const interfaceWithoutRL = new TestManualInterface(300000, silentLogger);
+      interfaceWithoutRL.setReadline(null);
 
       // Should not throw
       expect(() => interfaceWithoutRL.close()).not.toThrow();

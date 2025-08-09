@@ -2,7 +2,6 @@
  * Manual AI Interface implementation
  * Provides interactive copy-paste workflow for AI communication
  */
-/* eslint-disable no-console */
 
 import * as readline from 'readline';
 import {
@@ -13,6 +12,7 @@ import {
   AIValidationError,
   AITimeoutError,
 } from './ai-interface';
+import { Logger, ConsoleLogger } from '../utils/logger';
 
 /**
  * Colors for terminal output
@@ -36,9 +36,14 @@ const colors = {
 export class ManualInterface implements AIInterface {
   private cumulativeUsage: Usage | null = null;
   private rl: readline.Interface;
+  private logger: Logger;
 
-  constructor(private timeout: number = 300000) {
+  constructor(
+    private timeout: number = 300000,
+    logger?: Logger
+  ) {
     // 5 minute default timeout
+    this.logger = logger || new ConsoleLogger();
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -56,7 +61,6 @@ export class ManualInterface implements AIInterface {
    * Send prompt via interactive copy-paste workflow
    */
   async sendPrompt(prompt: string, agent: string, config?: AIConfig): Promise<AIResponse> {
-
     // Display the formatted prompt for copying
     this.displayPromptForCopy(prompt, agent, config);
 
@@ -144,20 +148,22 @@ export class ManualInterface implements AIInterface {
   private displayPromptForCopy(prompt: string, agent: string, config?: AIConfig): void {
     const border = '━'.repeat(60);
 
-    console.log(`\n${colors.cyan}${colors.bright}🤖 AI Agent: ${agent}${colors.reset}`);
-    
+    this.logger.info(`\n${colors.cyan}${colors.bright}🤖 AI Agent: ${agent}${colors.reset}`);
+
     if (config?.model) {
-      console.log(`${colors.dim}Model: ${config.model}${colors.reset}`);
-    }
-    
-    if (config?.temperature !== undefined) {
-      console.log(`${colors.dim}Temperature: ${config.temperature}${colors.reset}`);
+      this.logger.info(`${colors.dim}Model: ${config.model}${colors.reset}`);
     }
 
-    console.log(`\n${colors.yellow}${colors.bright}📋 Copy this prompt to your AI tool:${colors.reset}`);
-    console.log(`${colors.yellow}${border}${colors.reset}`);
-    console.log(prompt);
-    console.log(`${colors.yellow}${border}${colors.reset}`);
+    if (config?.temperature !== undefined) {
+      this.logger.info(`${colors.dim}Temperature: ${config.temperature}${colors.reset}`);
+    }
+
+    this.logger.info(
+      `\n${colors.yellow}${colors.bright}📋 Copy this prompt to your AI tool:${colors.reset}`
+    );
+    this.logger.info(`${colors.yellow}${border}${colors.reset}`);
+    this.logger.info(prompt);
+    this.logger.info(`${colors.yellow}${border}${colors.reset}`);
   }
 
   /**
@@ -172,8 +178,10 @@ export class ManualInterface implements AIInterface {
         reject(new AITimeoutError('Response input timed out'));
       }, this.timeout);
 
-      console.log(`\n${colors.green}${colors.bright}📝 Paste AI response and press Enter twice when done:${colors.reset}`);
-      console.log(`${colors.dim}(Press Ctrl+C to cancel)${colors.reset}\n`);
+      this.logger.info(
+        `\n${colors.green}${colors.bright}📝 Paste AI response and press Enter twice when done:${colors.reset}`
+      );
+      this.logger.info(`${colors.dim}(Press Ctrl+C to cancel)${colors.reset}\n`);
 
       this.rl.on('line', (line) => {
         if (line.trim() === '') {
@@ -193,7 +201,7 @@ export class ManualInterface implements AIInterface {
 
       this.rl.on('SIGINT', () => {
         clearTimeout(timeoutId);
-        console.log(`\n${colors.red}Input cancelled by user${colors.reset}`);
+        this.logger.warn(`\n${colors.red}Input cancelled by user${colors.reset}`);
         reject(new AIValidationError('User cancelled input'));
       });
     });
@@ -203,10 +211,10 @@ export class ManualInterface implements AIInterface {
    * Display success message
    */
   private displaySuccess(responseLength: number): void {
-    console.log(
+    this.logger.info(
       `\n${colors.green}${colors.bright}✅ Response received successfully!${colors.reset}`
     );
-    console.log(`${colors.dim}Response length: ${responseLength} characters${colors.reset}\n`);
+    this.logger.info(`${colors.dim}Response length: ${responseLength} characters${colors.reset}\n`);
   }
 
   /**
