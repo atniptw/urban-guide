@@ -124,6 +124,15 @@ describe('WorkflowEngine', () => {
       await expect(workflowEngine.execute(sampleWorkflow, inputs)).rejects.toThrow(WorkflowError);
     });
 
+    it('should handle null session state after creation', async () => {
+      mockStateManager.loadSession.mockResolvedValueOnce(null as any);
+
+      const inputs = { input1: 'test-value' };
+
+      await expect(workflowEngine.execute(sampleWorkflow, inputs)).rejects.toThrow(WorkflowError);
+      expect(mockStateManager.updateSessionStatus).toHaveBeenCalledWith('session-123', 'failed');
+    });
+
     it('should emit workflow events during execution', async () => {
       const startedSpy = jest.fn();
       const stepStartedSpy = jest.fn();

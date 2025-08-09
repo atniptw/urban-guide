@@ -1,7 +1,7 @@
 /**
  * Core Workflow Engine for executing workflow steps
  * Handles step execution, retry logic, and state management
- * 
+ *
  * NOTE: Some TypeScript strict mode issues are disabled for prototype
  * In production, all `any` types should be properly typed
  */
@@ -12,12 +12,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 
 import { EventEmitter } from 'events';
-import {
-  Workflow,
-  WorkflowState,
-  StepExecution,
-  WorkflowStatus,
-} from '../core/types';
+import { Workflow, WorkflowState, StepExecution, WorkflowStatus } from '../core/types';
 import { WorkflowError, StepExecutionError } from '../core/errors';
 import { StateManager } from '../state/state-manager';
 import { StepExecutor } from './step-executor';
@@ -80,7 +75,7 @@ export class WorkflowEngine extends EventEmitter {
     } catch (error) {
       // Mark as failed
       await this.stateManager.updateSessionStatus(sessionId, 'failed');
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.emit('failed', { sessionId, error: errorMessage });
 
@@ -103,7 +98,9 @@ export class WorkflowEngine extends EventEmitter {
     }
 
     if (sessionState.status !== 'paused') {
-      throw new WorkflowError(`Cannot resume session ${sessionId} with status ${sessionState.status}`);
+      throw new WorkflowError(
+        `Cannot resume session ${sessionId} with status ${sessionState.status}`
+      );
     }
 
     this.emit('resumed', { sessionId, stepId: `step-${sessionState.currentStepIndex}` });
@@ -111,7 +108,9 @@ export class WorkflowEngine extends EventEmitter {
     try {
       // Load the workflow definition (would need WorkflowLoader integration)
       // For now, throw error indicating this needs to be implemented
-      throw new WorkflowError('Resume functionality requires workflow definition loading - not yet implemented');
+      throw new WorkflowError(
+        'Resume functionality requires workflow definition loading - not yet implemented'
+      );
 
       // TODO: Implement resume logic
       // const workflow = await this.loadWorkflow(sessionState.workflowId);
@@ -119,7 +118,7 @@ export class WorkflowEngine extends EventEmitter {
       // return this.mapToWorkflowState(finalState);
     } catch (error) {
       await this.stateManager.updateSessionStatus(sessionId, 'failed');
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.emit('failed', { sessionId, error: errorMessage });
 
@@ -139,11 +138,13 @@ export class WorkflowEngine extends EventEmitter {
     }
 
     if (sessionState.status !== 'running') {
-      throw new WorkflowError(`Cannot pause session ${sessionId} with status ${sessionState.status}`);
+      throw new WorkflowError(
+        `Cannot pause session ${sessionId} with status ${sessionState.status}`
+      );
     }
 
     await this.stateManager.updateSessionStatus(sessionId, 'paused');
-    
+
     this.emit('paused', { sessionId, stepId: `step-${sessionState.currentStepIndex}` });
   }
 
@@ -155,7 +156,7 @@ export class WorkflowEngine extends EventEmitter {
 
     for (let i = currentState.currentStepIndex; i < workflow.steps.length; i++) {
       const step = workflow.steps[i];
-      
+
       this.emit('stepStarted', { sessionId: currentState.sessionId, stepId: step.id });
 
       try {
@@ -192,7 +193,6 @@ export class WorkflowEngine extends EventEmitter {
           stepId: step.id,
           outputs: stepResult.outputs,
         });
-
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
@@ -215,7 +215,11 @@ export class WorkflowEngine extends EventEmitter {
           error: errorMessage,
         });
 
-        throw new StepExecutionError(`Step ${step.id} failed: ${errorMessage}`, 'unknown-workflow', step.id);
+        throw new StepExecutionError(
+          `Step ${step.id} failed: ${errorMessage}`,
+          'unknown-workflow',
+          step.id
+        );
       }
     }
 
@@ -276,7 +280,7 @@ export class WorkflowEngine extends EventEmitter {
       maxAge,
       statuses,
     });
-    
+
     return result.deleted.length;
   }
 }

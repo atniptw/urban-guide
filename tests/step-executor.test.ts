@@ -77,6 +77,23 @@ describe('StepExecutor', () => {
       expect(result.outputs.exitCode).toBe(0);
     });
 
+    it('should handle script execution failure', async () => {
+      const step: Step = {
+        id: 'failing-script-step',
+        type: 'script',
+        command: 'echo "{{testVar}}"',
+        expectedExitCode: 0,
+      };
+
+      // Mock the runCommand method to throw an error
+      const mockRunCommand = jest.fn().mockRejectedValue(new Error('Command failed'));
+      (stepExecutor as any).runCommand = mockRunCommand;
+
+      await expect(
+        stepExecutor.executeStep(step, baseContext, 'session-123')
+      ).rejects.toThrow(StepExecutionError);
+    });
+
     it('should execute validation step', async () => {
       const step: Step = {
         id: 'validation-step',
@@ -285,9 +302,37 @@ describe('StepExecutor', () => {
       expect(classification).toBe('authentication_error');
     });
 
+    it('should classify validation errors', () => {
+      const error = new Error('Validation failed');
+      const classification = (stepExecutor as any).classifyError(error);
+      expect(classification).toBe('validation_error');
+    });
+
+    it('should classify resource unavailable errors', () => {
+      const error = new Error('Service unavailable');
+      const classification = (stepExecutor as any).classifyError(error);
+      expect(classification).toBe('resource_unavailable');
+    });
+
+    it('should classify busy errors', () => {
+      const error = new Error('Server busy');
+      const classification = (stepExecutor as any).classifyError(error);
+      expect(classification).toBe('resource_unavailable');
+    });
+
     it('should default to temporary_failure for unknown errors', () => {
       const error = new Error('Some random error');
       const classification = (stepExecutor as any).classifyError(error);
+      expect(classification).toBe('temporary_failure');
+    });
+
+    it('should handle null/undefined errors', () => {
+      const classification = (stepExecutor as any).classifyError(null);
+      expect(classification).toBe('temporary_failure');
+    });
+
+    it('should handle non-Error objects', () => {
+      const classification = (stepExecutor as any).classifyError('string error');
       expect(classification).toBe('temporary_failure');
     });
   });
@@ -346,6 +391,256 @@ describe('StepExecutor', () => {
       await expect(
         stepExecutor.executeStep(step, baseContext, 'session-123')
       ).rejects.toThrow(StepExecutionError);
+    });
+  });
+
+  describe('safe expression evaluator', () => {
+    it('should handle logical AND operations', () => {
+      const context = { a: true, b: true, c: false };
+      const result = (stepExecutor as any).safeExpressionEvaluator('a && b', context);
+      expect(result).toBe(true);
+
+      const result2 = (stepExecutor as any).safeExpressionEvaluator('a && c', context);
+      expect(result2).toBe(false);
+    });
+
+    it('should handle logical OR operations', () => {
+      const context = { a: true, b: false, c: false };
+      const result = (stepExecutor as any).safeExpressionEvaluator('a || b', context);
+      expect(result).toBe(true);
+
+      const result2 = (stepExecutor as any).safeExpressionEvaluator('b || c', context);
+      expect(result2).toBe(false);
+    });
+
+    it('should handle negation', () => {
+      const context = { a: true, b: false };
+      const result = (stepExecutor as any).safeExpressionEvaluator('!a', context);
+      expect(result).toBe(false);
+
+      const result2 = (stepExecutor as any).safeExpressionEvaluator('!b', context);
+      expect(result2).toBe(true);
+    });
+
+    it('should handle parentheses', () => {
+      const context = { a: true, b: false };
+      const result = (stepExecutor as any).safeExpressionEvaluator('(a)', context);
+      expect(result).toBe(true);
+
+      const result2 = (stepExecutor as any).safeExpressionEvaluator('(!b)', context);
+      expect(result2).toBe(true);
+    });
+
+    it('should handle equality comparisons', () => {
+      const context = { a: 5, b: 5, c: 10 };
+      const result = (stepExecutor as any).safeExpressionEvaluator('a == b', context);
+      expect(result).toBe(true);
+
+      const result2 = (stepExecutor as any).safeExpressionEvaluator('a === b', context);
+      expect(result2).toBe(true);
+
+      const result3 = (stepExecutor as any).safeExpressionEvaluator('a == c', context);
+      expect(result3).toBe(false);
+    });
+
+    it('should handle inequality comparisons', () => {
+      const context = { a: 5, b: 10 };
+      const result = (stepExecutor as any).safeExpressionEvaluator('a != b', context);
+      expect(result).toBe(true);
+
+      const result2 = (stepExecutor as any).safeExpressionEvaluator('a !== b', context);
+      expect(result2).toBe(true);
+
+      const result3 = (stepExecutor as any).safeExpressionEvaluator('a != a', context);
+      expect(result3).toBe(false);
+    });
+
+    it('should handle numeric comparisons', () => {
+      const context = { a: 5, b: 10, c: 5 };
+      const result1 = (stepExecutor as any).safeExpressionEvaluator('a < b', context);
+      expect(result1).toBe(true);
+
+      const result2 = (stepExecutor as any).safeExpressionEvaluator('a <= c', context);
+      expect(result2).toBe(true);
+
+      const result3 = (stepExecutor as any).safeExpressionEvaluator('b > a', context);
+      expect(result3).toBe(true);
+
+      const result4 = (stepExecutor as any).safeExpressionEvaluator('a >= c', context);
+      expect(result4).toBe(true);
+
+      const result5 = (stepExecutor as any).safeExpressionEvaluator('a > b', context);
+      expect(result5).toBe(false);
+    });
+
+    it('should handle boolean literals', () => {
+      const result1 = (stepExecutor as any).safeExpressionEvaluator('true', {});
+      expect(result1).toBe(true);
+
+      const result2 = (stepExecutor as any).safeExpressionEvaluator('false', {});
+      expect(result2).toBe(false);
+    });
+
+    it('should throw error for unsupported operators', () => {
+      const context = { a: 5, b: 10 };
+      expect(() => {
+        (stepExecutor as any).safeExpressionEvaluator('a % b', context);
+      }).toThrow();
+    });
+  });
+
+  describe('expression value resolution', () => {
+    it('should resolve boolean literals', () => {
+      const result1 = (stepExecutor as any).resolveExpressionValue('true', {});
+      expect(result1).toBe(true);
+
+      const result2 = (stepExecutor as any).resolveExpressionValue('false', {});
+      expect(result2).toBe(false);
+    });
+
+    it('should resolve null and undefined', () => {
+      const result1 = (stepExecutor as any).resolveExpressionValue('null', {});
+      expect(result1).toBe(null);
+
+      const result2 = (stepExecutor as any).resolveExpressionValue('undefined', {});
+      expect(result2).toBe(undefined);
+    });
+
+    it('should resolve number literals', () => {
+      const result1 = (stepExecutor as any).resolveExpressionValue('42', {});
+      expect(result1).toBe(42);
+
+      const result2 = (stepExecutor as any).resolveExpressionValue('-3.14', {});
+      expect(result2).toBe(-3.14);
+    });
+
+    it('should resolve string literals', () => {
+      const result1 = (stepExecutor as any).resolveExpressionValue('"hello"', {});
+      expect(result1).toBe('hello');
+
+      const result2 = (stepExecutor as any).resolveExpressionValue("'world'", {});
+      expect(result2).toBe('world');
+    });
+
+    it('should resolve variables', () => {
+      const context = { name: 'test', nested: { value: 42 } };
+      const result1 = (stepExecutor as any).resolveExpressionValue('name', context);
+      expect(result1).toBe('test');
+
+      const result2 = (stepExecutor as any).resolveExpressionValue('nested.value', context);
+      expect(result2).toBe(42);
+    });
+
+    it('should throw error for invalid expressions', () => {
+      expect(() => {
+        (stepExecutor as any).resolveExpressionValue('invalid#expression', {});
+      }).toThrow();
+    });
+  });
+
+  describe('value comparison', () => {
+    it('should compare null/undefined values', () => {
+      const result1 = (stepExecutor as any).compareValues(null, null);
+      expect(result1).toBe(0);
+
+      const result2 = (stepExecutor as any).compareValues(null, 'test');
+      expect(result2).toBe(-1);
+
+      const result3 = (stepExecutor as any).compareValues('test', null);
+      expect(result3).toBe(1);
+    });
+
+    it('should compare numbers', () => {
+      const result1 = (stepExecutor as any).compareValues(5, 10);
+      expect(result1).toBe(-5);
+
+      const result2 = (stepExecutor as any).compareValues(10, 5);
+      expect(result2).toBe(5);
+
+      const result3 = (stepExecutor as any).compareValues(7, 7);
+      expect(result3).toBe(0);
+    });
+
+    it('should compare strings', () => {
+      const result1 = (stepExecutor as any).compareValues('apple', 'banana');
+      expect(result1).toBeLessThan(0);
+
+      const result2 = (stepExecutor as any).compareValues('banana', 'apple');
+      expect(result2).toBeGreaterThan(0);
+
+      const result3 = (stepExecutor as any).compareValues('test', 'test');
+      expect(result3).toBe(0);
+    });
+
+    it('should convert mixed types to strings for comparison', () => {
+      const result = (stepExecutor as any).compareValues(123, 'test');
+      expect(typeof result).toBe('number');
+    });
+  });
+
+  describe('resolveValue', () => {
+    it('should resolve nested object values', () => {
+      const variables = {
+        user: { profile: { name: 'test', settings: { theme: 'dark' } } },
+      };
+      
+      const result1 = (stepExecutor as any).resolveValue('user.profile.name', variables);
+      expect(result1).toBe('test');
+
+      const result2 = (stepExecutor as any).resolveValue('user.profile.settings.theme', variables);
+      expect(result2).toBe('dark');
+    });
+
+    it('should return undefined for non-existent paths', () => {
+      const variables = { user: { name: 'test' } };
+      
+      const result1 = (stepExecutor as any).resolveValue('user.nonexistent', variables);
+      expect(result1).toBe(undefined);
+
+      const result2 = (stepExecutor as any).resolveValue('nonexistent.path', variables);
+      expect(result2).toBe(undefined);
+    });
+
+    it('should handle null/undefined intermediate values', () => {
+      const variables = { user: null, other: { nested: undefined } };
+      
+      const result1 = (stepExecutor as any).resolveValue('user.name', variables);
+      expect(result1).toBe(undefined);
+
+      const result2 = (stepExecutor as any).resolveValue('other.nested.value', variables);
+      expect(result2).toBe(undefined);
+    });
+
+    it('should handle primitive intermediate values', () => {
+      const variables = { primitive: 'string' };
+      
+      const result = (stepExecutor as any).resolveValue('primitive.property', variables);
+      expect(result).toBe(undefined);
+    });
+  });
+
+  describe('retry delay calculation', () => {
+    it('should calculate exponential backoff', () => {
+      const retryPolicy = { maxAttempts: 3, backoffMs: 1000 };
+      
+      const delay0 = (stepExecutor as any).calculateRetryDelay(retryPolicy, 0);
+      expect(delay0).toBe(1000);
+
+      const delay1 = (stepExecutor as any).calculateRetryDelay(retryPolicy, 1);
+      expect(delay1).toBe(2000);
+
+      const delay2 = (stepExecutor as any).calculateRetryDelay(retryPolicy, 2);
+      expect(delay2).toBe(4000);
+    });
+
+    it('should default to 1000ms when no policy provided', () => {
+      const delay = (stepExecutor as any).calculateRetryDelay(undefined, 0);
+      expect(delay).toBe(1000);
+    });
+
+    it('should default to 1000ms when no backoffMs provided', () => {
+      const delay = (stepExecutor as any).calculateRetryDelay({}, 0);
+      expect(delay).toBe(1000);
     });
   });
 });

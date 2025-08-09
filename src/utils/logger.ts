@@ -53,19 +53,19 @@ export class ConsoleLogger implements Logger {
  * Silent logger for testing or when logging is disabled
  */
 export class SilentLogger implements Logger {
-  debug(): void {
+  debug(_message: string, ..._args: unknown[]): void {
     // No-op
   }
 
-  info(): void {
+  info(_message: string, ..._args: unknown[]): void {
     // No-op
   }
 
-  warn(): void {
+  warn(_message: string, ..._args: unknown[]): void {
     // No-op
   }
 
-  error(): void {
+  error(_message: string, ..._args: unknown[]): void {
     // No-op
   }
 }

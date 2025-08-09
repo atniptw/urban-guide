@@ -1,7 +1,7 @@
 /**
  * Step Executor for handling individual workflow step execution
  * Supports different step types: ai-prompt, script, validation, loop, conditional
- * 
+ *
  * NOTE: Some TypeScript strict mode issues are disabled for prototype
  * In production, all `any` types should be properly typed
  */
@@ -14,12 +14,7 @@
 /* eslint-disable curly */
 
 import { spawn } from 'child_process';
-import {
-  Step,
-  Context,
-  RetryPolicy,
-  RetryErrorPattern,
-} from '../core/types';
+import { Step, Context, RetryPolicy, RetryErrorPattern } from '../core/types';
 import { StepExecutionError, ValidationError } from '../core/errors';
 import { TemplateEngine } from '../templates/template-engine';
 import { logger } from '../utils/logger';
@@ -75,7 +70,7 @@ export class StepExecutor {
       if (this.shouldRetry(step, error, retryCount)) {
         const delay = this.calculateRetryDelay(step.retryPolicy, retryCount);
         await this.sleep(delay);
-        
+
         return this.executeStep(step, context, sessionId, retryCount + 1);
       }
 
@@ -91,19 +86,19 @@ export class StepExecutor {
     switch (step.type) {
       case 'ai-prompt':
         return this.executeAIPrompt(step, context);
-      
+
       case 'script':
         return this.executeScript(step, context);
-      
+
       case 'validation':
         return this.executeValidation(step, context);
-      
+
       case 'loop':
         return this.executeLoop(step, context);
-      
+
       case 'conditional':
         return this.executeConditional(step, context);
-      
+
       default:
         throw new StepExecutionError(
           `Unknown step type: ${(step as any).type}`,
@@ -128,7 +123,7 @@ export class StepExecutor {
     // For now, this is a placeholder - would need AI Interface integration
     // TODO: Integrate with AI Interface when it's implemented
     logger.debug(`AI PROMPT Step ${step.id}: Would execute AI prompt with agent ${step.agent}`);
-    
+
     if (step.template) {
       const prompt = this.templateEngine.render(step.template, context.variables);
       logger.debug(`AI PROMPT Generated prompt:\n${prompt}`);
@@ -149,15 +144,19 @@ export class StepExecutor {
    */
   private async executeScript(step: Step, context: StepContext): Promise<StepResult> {
     if (!step.command) {
-      throw new StepExecutionError('Script step requires command configuration', 'unknown-workflow', step.id);
+      throw new StepExecutionError(
+        'Script step requires command configuration',
+        'unknown-workflow',
+        step.id
+      );
     }
 
     // Render command template with context variables
     const command = this.templateEngine.render(step.command, context.variables);
-    
+
     try {
       const result = await this.runCommand(command, step.expectedExitCode || 0);
-      
+
       return {
         outputs: {
           stdout: result.stdout,
@@ -181,16 +180,20 @@ export class StepExecutor {
    */
   private async executeValidation(step: Step, context: StepContext): Promise<StepResult> {
     if (!step.condition) {
-      throw new StepExecutionError('Validation step requires condition configuration', 'unknown-workflow', step.id);
+      throw new StepExecutionError(
+        'Validation step requires condition configuration',
+        'unknown-workflow',
+        step.id
+      );
     }
 
     // Render condition template with context variables
     const condition = this.templateEngine.render(step.condition, context.variables);
-    
+
     // Simple validation - check if condition evaluates to truthy
     // TODO: Implement proper expression evaluation
     const isValid = this.evaluateCondition(condition, context.variables);
-    
+
     if (!isValid) {
       throw new ValidationError(`Validation failed: ${condition}`);
     }
@@ -209,13 +212,21 @@ export class StepExecutor {
    */
   private async executeLoop(step: Step, context: StepContext): Promise<StepResult> {
     if (!step.items || !step.steps) {
-      throw new StepExecutionError('Loop step requires items and steps configuration', 'unknown-workflow', step.id);
+      throw new StepExecutionError(
+        'Loop step requires items and steps configuration',
+        'unknown-workflow',
+        step.id
+      );
     }
 
     // Resolve items from context
     const items = this.resolveValue(step.items, context.variables);
     if (!Array.isArray(items)) {
-      throw new StepExecutionError(`Loop items must be an array, got ${typeof items}`, 'unknown-workflow', step.id);
+      throw new StepExecutionError(
+        `Loop items must be an array, got ${typeof items}`,
+        'unknown-workflow',
+        step.id
+      );
     }
 
     const outputs: Record<string, unknown> = {
@@ -226,7 +237,7 @@ export class StepExecutor {
     // Execute steps for each item
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      
+
       // Create iteration context
       const iterationContext = {
         ...context,
@@ -245,7 +256,7 @@ export class StepExecutor {
       for (const subStep of step.steps) {
         const stepResult = await this.executeStepByType(subStep, iterationContext);
         Object.assign(iterationOutputs, stepResult.outputs);
-        
+
         if (!stepResult.shouldContinue) {
           break;
         }
@@ -269,7 +280,11 @@ export class StepExecutor {
    */
   private async executeConditional(step: Step, context: StepContext): Promise<StepResult> {
     if (!step.condition || !step.steps) {
-      throw new StepExecutionError('Conditional step requires condition and steps configuration', 'unknown-workflow', step.id);
+      throw new StepExecutionError(
+        'Conditional step requires condition and steps configuration',
+        'unknown-workflow',
+        step.id
+      );
     }
 
     // Render and evaluate condition
@@ -288,7 +303,7 @@ export class StepExecutor {
       for (const subStep of step.steps) {
         const stepResult = await this.executeStepByType(subStep, context);
         Object.assign(stepOutputs, stepResult.outputs);
-        
+
         if (!stepResult.shouldContinue) {
           break;
         }
@@ -306,7 +321,10 @@ export class StepExecutor {
   /**
    * Run shell command
    */
-  private runCommand(command: string, expectedExitCode = 0): Promise<{
+  private runCommand(
+    command: string,
+    expectedExitCode = 0
+  ): Promise<{
     stdout: string;
     stderr: string;
     exitCode: number;
@@ -331,7 +349,7 @@ export class StepExecutor {
 
       process.on('close', (code) => {
         const exitCode = code ?? -1;
-        
+
         if (exitCode === expectedExitCode) {
           resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode });
         } else {
@@ -364,36 +382,36 @@ export class StepExecutor {
   private safeExpressionEvaluator(expression: string, variables: Record<string, unknown>): boolean {
     // Normalize whitespace
     const expr = expression.trim();
-    
+
     // Handle logical operators (&&, ||)
     if (expr.includes('&&')) {
-      const parts = expr.split('&&').map(part => part.trim());
-      return parts.every(part => this.safeExpressionEvaluator(part, variables));
+      const parts = expr.split('&&').map((part) => part.trim());
+      return parts.every((part) => this.safeExpressionEvaluator(part, variables));
     }
-    
+
     if (expr.includes('||')) {
-      const parts = expr.split('||').map(part => part.trim());
-      return parts.some(part => this.safeExpressionEvaluator(part, variables));
+      const parts = expr.split('||').map((part) => part.trim());
+      return parts.some((part) => this.safeExpressionEvaluator(part, variables));
     }
-    
+
     // Handle negation
     if (expr.startsWith('!')) {
       return !this.safeExpressionEvaluator(expr.substring(1).trim(), variables);
     }
-    
+
     // Handle parentheses (simple case)
     const parenMatch = expr.match(/^\((.+)\)$/);
     if (parenMatch) {
       return this.safeExpressionEvaluator(parenMatch[1], variables);
     }
-    
+
     // Handle comparison operators
     const comparisonMatch = expr.match(/^(.+?)\s*(===|==|!==|!=|<=|>=|<|>)\s*(.+)$/);
     if (comparisonMatch) {
       const [, left, operator, right] = comparisonMatch;
       const leftValue = this.resolveExpressionValue(left.trim(), variables);
       const rightValue = this.resolveExpressionValue(right.trim(), variables);
-      
+
       switch (operator) {
         case '===':
         case '==':
@@ -413,45 +431,47 @@ export class StepExecutor {
           throw new Error(`Unsupported operator: ${operator}`);
       }
     }
-    
+
     // Handle single values (variables, literals)
     const value = this.resolveExpressionValue(expr, variables);
     return Boolean(value);
   }
-  
+
   /**
    * Resolve a value from an expression (variable, literal, etc.)
    */
   private resolveExpressionValue(expr: string, variables: Record<string, unknown>): unknown {
     const trimmed = expr.trim();
-    
+
     // Handle boolean literals
     if (trimmed === 'true') return true;
     if (trimmed === 'false') return false;
-    
+
     // Handle null/undefined
     if (trimmed === 'null') return null;
     if (trimmed === 'undefined') return undefined;
-    
+
     // Handle number literals
     if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
       return Number(trimmed);
     }
-    
+
     // Handle string literals (with quotes)
-    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
-        (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    if (
+      (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'"))
+    ) {
       return trimmed.slice(1, -1);
     }
-    
+
     // Handle variables (support dot notation)
     if (/^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/.test(trimmed)) {
       return this.resolveValue(trimmed, variables);
     }
-    
+
     throw new Error(`Cannot resolve expression value: ${expr}`);
   }
-  
+
   /**
    * Compare two values for ordering (used by comparison operators)
    */
@@ -460,17 +480,17 @@ export class StepExecutor {
     if (left == null && right == null) return 0;
     if (left == null) return -1;
     if (right == null) return 1;
-    
+
     // Handle numbers
     if (typeof left === 'number' && typeof right === 'number') {
       return left - right;
     }
-    
+
     // Handle strings
     if (typeof left === 'string' && typeof right === 'string') {
       return left.localeCompare(right);
     }
-    
+
     // Convert to strings for comparison
     return String(left).localeCompare(String(right));
   }
@@ -481,14 +501,14 @@ export class StepExecutor {
   private resolveValue(path: string, variables: Record<string, unknown>): unknown {
     const keys = path.split('.');
     let current = variables;
-    
+
     for (const key of keys) {
       if (current == null || typeof current !== 'object') {
         return undefined;
       }
       current = (current as any)[key];
     }
-    
+
     return current;
   }
 
@@ -519,7 +539,8 @@ export class StepExecutor {
   private classifyError(error: unknown): RetryErrorPattern {
     if (!error) return 'temporary_failure';
 
-    const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    const message =
+      error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
 
     if (message.includes('timeout')) return 'timeout';
     if (message.includes('network') || message.includes('connection')) return 'network_error';
@@ -546,6 +567,6 @@ export class StepExecutor {
    * Sleep utility for retry delays
    */
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

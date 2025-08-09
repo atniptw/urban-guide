@@ -289,9 +289,7 @@ export class StateManager {
               });
             } catch (error) {
               // Skip files that can't be parsed
-              logger.warn(
-                `Could not parse session file ${file}: ${this.getErrorMessage(error)}`
-              );
+              logger.warn(`Could not parse session file ${file}: ${this.getErrorMessage(error)}`);
             }
           }
         }
