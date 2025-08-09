@@ -4,8 +4,14 @@
  */
 
 import { Octokit } from '@octokit/rest';
+import type { RestEndpointMethodTypes } from '@octokit/rest';
 import { Logger } from '../utils/logger';
 import { IntegrationError } from '../core/errors';
+
+// Type aliases for GitHub API responses
+type IssuesGetResponse = RestEndpointMethodTypes['issues']['get']['response']['data'];
+type IssuesGetResponseLabel = NonNullable<IssuesGetResponse['labels']>[number];
+type IssuesGetResponseAssignee = NonNullable<IssuesGetResponse['assignees']>[number];
 
 export interface GitHubConfig {
   token?: string;
@@ -125,27 +131,21 @@ export class GitHubIntegration {
         title: data.title,
         body: data.body || null,
         state: data.state as 'open' | 'closed',
-        labels: data.labels.map((label: unknown) => {
+        labels: data.labels.map((label: string | IssuesGetResponseLabel) => {
           if (typeof label === 'string') {
             return { name: label, color: '', description: undefined };
           }
-          const labelObj = label as {
-            name?: string;
-            color?: string | null;
-            description?: string | null;
-          };
           return {
-            name: labelObj.name || '',
-            color: labelObj.color || '',
-            description: labelObj.description || undefined,
+            name: label.name || '',
+            color: label.color || '',
+            description: label.description || undefined,
           };
         }),
         assignees:
-          data.assignees?.map((assignee: unknown) => {
-            const assigneeObj = assignee as { login?: string; id?: number };
+          data.assignees?.map((assignee: IssuesGetResponseAssignee) => {
             return {
-              login: assigneeObj.login || '',
-              id: assigneeObj.id || 0,
+              login: assignee.login || '',
+              id: assignee.id || 0,
             };
           }) || [],
         milestone: data.milestone
@@ -210,27 +210,21 @@ export class GitHubIntegration {
         title: data.title,
         body: data.body || null,
         state: data.state as 'open' | 'closed',
-        labels: data.labels.map((label: unknown) => {
+        labels: data.labels.map((label: string | IssuesGetResponseLabel) => {
           if (typeof label === 'string') {
             return { name: label, color: '', description: undefined };
           }
-          const labelObj = label as {
-            name?: string;
-            color?: string | null;
-            description?: string | null;
-          };
           return {
-            name: labelObj.name || '',
-            color: labelObj.color || '',
-            description: labelObj.description || undefined,
+            name: label.name || '',
+            color: label.color || '',
+            description: label.description || undefined,
           };
         }),
         assignees:
-          data.assignees?.map((assignee: unknown) => {
-            const assigneeObj = assignee as { login?: string; id?: number };
+          data.assignees?.map((assignee: IssuesGetResponseAssignee) => {
             return {
-              login: assigneeObj.login || '',
-              id: assigneeObj.id || 0,
+              login: assignee.login || '',
+              id: assignee.id || 0,
             };
           }) || [],
         milestone: data.milestone
