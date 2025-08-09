@@ -34,12 +34,16 @@ export class WorkflowError extends AiflowError {
  * Error thrown during validation of inputs or configurations
  */
 export class ValidationError extends AiflowError {
+  public readonly cause?: Error;
+
   constructor(
     message: string,
-    public readonly errors?: Array<{ field: string; message: string }>
+    public readonly errors?: Array<{ field: string; message: string }>,
+    options?: { cause?: Error }
   ) {
     super(message);
     this.name = 'ValidationError';
+    this.cause = options?.cause;
   }
 }
 
