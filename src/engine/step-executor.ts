@@ -3,14 +3,13 @@
  * Supports different step types: ai-prompt, script, validation, loop, conditional
  * 
  * NOTE: Some TypeScript strict mode issues are disabled for prototype
- * In production, all `any` types should be properly typed and console.log replaced with proper logging
+ * In production, all `any` types should be properly typed
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/require-await */
-/* eslint-disable no-console */
 /* eslint-disable eqeqeq */
 /* eslint-disable curly */
 
@@ -23,6 +22,7 @@ import {
 } from '../core/types';
 import { StepExecutionError, ValidationError } from '../core/errors';
 import { TemplateEngine } from '../templates/template-engine';
+import { logger } from '../utils/logger';
 
 /**
  * Result of step execution
@@ -127,11 +127,11 @@ export class StepExecutor {
 
     // For now, this is a placeholder - would need AI Interface integration
     // TODO: Integrate with AI Interface when it's implemented
-    console.log(`[AI PROMPT] Step ${step.id}: Would execute AI prompt with agent ${step.agent}`);
+    logger.debug(`AI PROMPT Step ${step.id}: Would execute AI prompt with agent ${step.agent}`);
     
     if (step.template) {
       const prompt = this.templateEngine.render(step.template, context.variables);
-      console.log(`[AI PROMPT] Generated prompt:\n${prompt}`);
+      logger.debug(`AI PROMPT Generated prompt:\n${prompt}`);
     }
 
     // Placeholder return - would normally contain AI response
@@ -346,25 +346,133 @@ export class StepExecutor {
   }
 
   /**
-   * Evaluate a condition string (simple implementation)
+   * Evaluate a condition string using a safe expression evaluator
    */
   private evaluateCondition(condition: string, variables: Record<string, unknown>): boolean {
-    // TODO: Implement proper expression evaluation
-    // For now, just check if the condition string evaluates to a truthy value
     try {
-      // Simple variable substitution
-      let expr = condition;
-      for (const [key, value] of Object.entries(variables)) {
-        const regex = new RegExp(`\\b${key}\\b`, 'g');
-        expr = expr.replace(regex, JSON.stringify(value));
-      }
-      
-      // WARNING: Using eval is dangerous - this is just for prototype
-      // In production, use a proper expression evaluator
-      return Boolean(eval(expr));
+      // Safe expression evaluation without eval()
+      return this.safeExpressionEvaluator(condition, variables);
     } catch (error) {
       throw new ValidationError(`Invalid condition: ${condition}`);
     }
+  }
+
+  /**
+   * Safe expression evaluator that supports basic operators without eval()
+   * Supports: ==, !=, <, <=, >, >=, &&, ||, !, true/false, numbers, strings, variables
+   */
+  private safeExpressionEvaluator(expression: string, variables: Record<string, unknown>): boolean {
+    // Normalize whitespace
+    const expr = expression.trim();
+    
+    // Handle logical operators (&&, ||)
+    if (expr.includes('&&')) {
+      const parts = expr.split('&&').map(part => part.trim());
+      return parts.every(part => this.safeExpressionEvaluator(part, variables));
+    }
+    
+    if (expr.includes('||')) {
+      const parts = expr.split('||').map(part => part.trim());
+      return parts.some(part => this.safeExpressionEvaluator(part, variables));
+    }
+    
+    // Handle negation
+    if (expr.startsWith('!')) {
+      return !this.safeExpressionEvaluator(expr.substring(1).trim(), variables);
+    }
+    
+    // Handle parentheses (simple case)
+    const parenMatch = expr.match(/^\((.+)\)$/);
+    if (parenMatch) {
+      return this.safeExpressionEvaluator(parenMatch[1], variables);
+    }
+    
+    // Handle comparison operators
+    const comparisonMatch = expr.match(/^(.+?)\s*(===|==|!==|!=|<=|>=|<|>)\s*(.+)$/);
+    if (comparisonMatch) {
+      const [, left, operator, right] = comparisonMatch;
+      const leftValue = this.resolveExpressionValue(left.trim(), variables);
+      const rightValue = this.resolveExpressionValue(right.trim(), variables);
+      
+      switch (operator) {
+        case '===':
+        case '==':
+          return leftValue === rightValue;
+        case '!==':
+        case '!=':
+          return leftValue !== rightValue;
+        case '<':
+          return this.compareValues(leftValue, rightValue) < 0;
+        case '<=':
+          return this.compareValues(leftValue, rightValue) <= 0;
+        case '>':
+          return this.compareValues(leftValue, rightValue) > 0;
+        case '>=':
+          return this.compareValues(leftValue, rightValue) >= 0;
+        default:
+          throw new Error(`Unsupported operator: ${operator}`);
+      }
+    }
+    
+    // Handle single values (variables, literals)
+    const value = this.resolveExpressionValue(expr, variables);
+    return Boolean(value);
+  }
+  
+  /**
+   * Resolve a value from an expression (variable, literal, etc.)
+   */
+  private resolveExpressionValue(expr: string, variables: Record<string, unknown>): unknown {
+    const trimmed = expr.trim();
+    
+    // Handle boolean literals
+    if (trimmed === 'true') return true;
+    if (trimmed === 'false') return false;
+    
+    // Handle null/undefined
+    if (trimmed === 'null') return null;
+    if (trimmed === 'undefined') return undefined;
+    
+    // Handle number literals
+    if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+      return Number(trimmed);
+    }
+    
+    // Handle string literals (with quotes)
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+      return trimmed.slice(1, -1);
+    }
+    
+    // Handle variables (support dot notation)
+    if (/^[a-zA-Z_$][a-zA-Z0-9_$]*(\.[a-zA-Z_$][a-zA-Z0-9_$]*)*$/.test(trimmed)) {
+      return this.resolveValue(trimmed, variables);
+    }
+    
+    throw new Error(`Cannot resolve expression value: ${expr}`);
+  }
+  
+  /**
+   * Compare two values for ordering (used by comparison operators)
+   */
+  private compareValues(left: unknown, right: unknown): number {
+    // Handle null/undefined
+    if (left == null && right == null) return 0;
+    if (left == null) return -1;
+    if (right == null) return 1;
+    
+    // Handle numbers
+    if (typeof left === 'number' && typeof right === 'number') {
+      return left - right;
+    }
+    
+    // Handle strings
+    if (typeof left === 'string' && typeof right === 'string') {
+      return left.localeCompare(right);
+    }
+    
+    // Convert to strings for comparison
+    return String(left).localeCompare(String(right));
   }
 
   /**

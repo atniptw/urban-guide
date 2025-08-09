@@ -8,6 +8,7 @@ import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { WorkflowStatus, StepExecution, Context } from '../core/types';
 import { StateError } from '../core/errors';
+import { logger } from '../utils/logger';
 
 /**
  * Extended workflow state for session persistence
@@ -216,8 +217,8 @@ export class StateManager {
         await fs.unlink(currentFile);
       } catch (error) {
         // If we can't delete the old file, log but don't fail
-        console.warn(
-          `Warning: Could not remove old session file ${currentFile}: ${this.getErrorMessage(error)}`
+        logger.warn(
+          `Could not remove old session file ${currentFile}: ${this.getErrorMessage(error)}`
         );
       }
     }
@@ -288,8 +289,8 @@ export class StateManager {
               });
             } catch (error) {
               // Skip files that can't be parsed
-              console.warn(
-                `Warning: Could not parse session file ${file}: ${this.getErrorMessage(error)}`
+              logger.warn(
+                `Could not parse session file ${file}: ${this.getErrorMessage(error)}`
               );
             }
           }
