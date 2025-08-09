@@ -69,6 +69,24 @@ export class GitHubIntegration {
   }
 
   /**
+   * Helper method to map GitHub API label responses to our interface format
+   */
+  private mapLabelsToInterface(
+    labels: (string | IssuesGetResponseLabel)[]
+  ): Array<{ name: string; color: string; description?: string }> {
+    return labels.map((label: string | IssuesGetResponseLabel) => {
+      if (typeof label === 'string') {
+        return { name: label, color: '', description: undefined };
+      }
+      return {
+        name: label.name || '',
+        color: label.color || '',
+        description: label.description || undefined,
+      };
+    });
+  }
+
+  /**
    * Parse GitHub issue URL or return repository info and issue number
    */
   parseIssueUrl(input: string): { owner: string; repo: string; issueNumber: number } {
@@ -131,16 +149,7 @@ export class GitHubIntegration {
         title: data.title,
         body: data.body || null,
         state: data.state as 'open' | 'closed',
-        labels: data.labels.map((label: string | IssuesGetResponseLabel) => {
-          if (typeof label === 'string') {
-            return { name: label, color: '', description: undefined };
-          }
-          return {
-            name: label.name || '',
-            color: label.color || '',
-            description: label.description || undefined,
-          };
-        }),
+        labels: this.mapLabelsToInterface(data.labels),
         assignees:
           data.assignees?.map((assignee: IssuesGetResponseAssignee) => {
             return {
@@ -210,16 +219,7 @@ export class GitHubIntegration {
         title: data.title,
         body: data.body || null,
         state: data.state as 'open' | 'closed',
-        labels: data.labels.map((label: string | IssuesGetResponseLabel) => {
-          if (typeof label === 'string') {
-            return { name: label, color: '', description: undefined };
-          }
-          return {
-            name: label.name || '',
-            color: label.color || '',
-            description: label.description || undefined,
-          };
-        }),
+        labels: this.mapLabelsToInterface(data.labels),
         assignees:
           data.assignees?.map((assignee: IssuesGetResponseAssignee) => {
             return {
