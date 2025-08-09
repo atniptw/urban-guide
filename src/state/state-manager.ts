@@ -57,7 +57,7 @@ export class StateManager {
 
   constructor(baseDir?: string) {
     this.stateDir = baseDir || path.join(process.cwd(), '.aiflow', 'state');
-    
+
     // Create status-specific directories
     this.statusDirs = {
       running: path.join(this.stateDir, 'running'),
@@ -74,7 +74,7 @@ export class StateManager {
     try {
       // Ensure base state directory exists
       await fs.mkdir(this.stateDir, { recursive: true });
-      
+
       // Create status directories
       for (const dir of Object.values(this.statusDirs)) {
         await fs.mkdir(dir, { recursive: true });
@@ -137,7 +137,7 @@ export class StateManager {
 
       // Write to temporary file first (atomic operation)
       await fs.writeFile(tempFile, JSON.stringify(stateToSave, null, 2), 'utf-8');
-      
+
       // Move to final location
       await fs.rename(tempFile, sessionFile);
     } catch (error) {
@@ -159,9 +159,12 @@ export class StateManager {
   /**
    * Load session from disk
    */
-  async loadSession(sessionId: string, expectedStatus?: WorkflowStatus): Promise<WorkflowSessionState> {
+  async loadSession(
+    sessionId: string,
+    expectedStatus?: WorkflowStatus
+  ): Promise<WorkflowSessionState> {
     let sessionFile: string;
-    
+
     if (expectedStatus) {
       // Look in specific status directory
       sessionFile = this.getSessionFilePath(sessionId, expectedStatus);
@@ -173,16 +176,12 @@ export class StateManager {
     try {
       const content = await fs.readFile(sessionFile, 'utf-8');
       const state = JSON.parse(content) as Record<string, unknown>;
-      
+
       // Convert date strings back to Date objects
       return this.deserializeState(state);
     } catch (error) {
       if (this.isFileNotFoundError(error)) {
-        throw new StateError(
-          `Session ${sessionId} not found`,
-          sessionId,
-          'read'
-        );
+        throw new StateError(`Session ${sessionId} not found`, sessionId, 'read');
       }
 
       throw new StateError(
@@ -200,7 +199,7 @@ export class StateManager {
     // First, find and load the current session
     const currentState = await this.loadSession(sessionId);
     const currentFile = this.getSessionFilePath(sessionId, currentState.status);
-    
+
     // Update the state
     const updatedState: WorkflowSessionState = {
       ...currentState,
@@ -210,7 +209,7 @@ export class StateManager {
 
     // Save to new location
     await this.saveSession(updatedState);
-    
+
     // Remove from old location if different
     if (currentState.status !== newStatus) {
       try {
@@ -225,12 +224,9 @@ export class StateManager {
   /**
    * Update session context
    */
-  async updateContext(
-    sessionId: string,
-    contextUpdates: Record<string, unknown>
-  ): Promise<void> {
+  async updateContext(sessionId: string, contextUpdates: Record<string, unknown>): Promise<void> {
     const state = await this.loadSession(sessionId);
-    
+
     // Merge context updates
     const updatedState: WorkflowSessionState = {
       ...state,
@@ -246,7 +242,7 @@ export class StateManager {
    */
   async addStepExecution(sessionId: string, execution: StepExecution): Promise<void> {
     const state = await this.loadSession(sessionId);
-    
+
     const updatedState: WorkflowSessionState = {
       ...state,
       stepExecutions: [...state.stepExecutions, execution],
@@ -262,23 +258,23 @@ export class StateManager {
    */
   async listSessions(status?: WorkflowStatus): Promise<SessionInfo[]> {
     await this.initialize();
-    
+
     const sessions: SessionInfo[] = [];
-    const statusesToCheck = status ? [status] : Object.keys(this.statusDirs) as WorkflowStatus[];
+    const statusesToCheck = status ? [status] : (Object.keys(this.statusDirs) as WorkflowStatus[]);
 
     for (const statusKey of statusesToCheck) {
       const statusDir = this.statusDirs[statusKey];
-      
+
       try {
         const files = await fs.readdir(statusDir);
-        
+
         for (const file of files) {
           if (file.endsWith('.json')) {
             try {
               const sessionFile = path.join(statusDir, file);
               const content = await fs.readFile(sessionFile, 'utf-8');
               const state = JSON.parse(content) as Record<string, unknown>;
-              
+
               sessions.push({
                 sessionId: state.sessionId as string,
                 workflowId: state.workflowId as string,
@@ -347,7 +343,7 @@ export class StateManager {
     for (const status of statuses) {
       try {
         const sessions = await this.listSessions(status);
-        
+
         for (const session of sessions) {
           if (session.updatedAt.getTime() < cutoffTime) {
             if (!dryRun) {
@@ -396,7 +392,7 @@ export class StateManager {
         // File doesn't exist in this directory, try next
       }
     }
-    
+
     throw new StateError(`Session ${sessionId} not found in any directory`, sessionId, 'read');
   }
 
@@ -408,11 +404,16 @@ export class StateManager {
       ...state,
       createdAt: new Date(state.createdAt as string),
       updatedAt: new Date(state.updatedAt as string),
-      stepExecutions: (state.stepExecutions as Record<string, unknown>[])?.map((execution: Record<string, unknown>) => ({
-        ...execution,
-        startedAt: new Date(execution.startedAt as string),
-        completedAt: execution.completedAt ? new Date(execution.completedAt as string) : undefined,
-      })) || [],
+      stepExecutions:
+        (state.stepExecutions as Record<string, unknown>[])?.map(
+          (execution: Record<string, unknown>) => ({
+            ...execution,
+            startedAt: new Date(execution.startedAt as string),
+            completedAt: execution.completedAt
+              ? new Date(execution.completedAt as string)
+              : undefined,
+          })
+        ) || [],
     } as WorkflowSessionState;
   }
 
@@ -421,10 +422,7 @@ export class StateManager {
    */
   private isFileNotFoundError(error: unknown): boolean {
     return (
-      error !== null &&
-      typeof error === 'object' &&
-      'code' in error &&
-      error.code === 'ENOENT'
+      error !== null && typeof error === 'object' && 'code' in error && error.code === 'ENOENT'
     );
   }
 
