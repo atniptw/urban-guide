@@ -565,6 +565,21 @@ describe('TemplateEngine', () => {
       expect(result).toBe('');
     });
 
+    it('should prevent prototype pollution via property access', () => {
+      const template = '${__proto__.polluted}';
+      const context = Object.create(null);
+      context.name = 'test';
+      const result = engine.render(template, context);
+      expect(result).toBe('');
+    });
+
+    it('should not access inherited properties', () => {
+      const template = '${toString}';
+      const context = { name: 'Alice' };
+      const result = engine.render(template, context);
+      expect(result).toBe(''); // Should not access Object.prototype.toString
+    });
+
     it('should not allow code injection through filters', () => {
       const template = '${value | unknownFilter}';
       const context = { value: 'test' };

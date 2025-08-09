@@ -459,7 +459,7 @@ export class TemplateEngine {
         return undefined;
       }
 
-      if (typeof value === 'object' && part in value) {
+      if (typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, part)) {
         value = (value as Record<string, unknown>)[part];
       } else {
         return undefined;
