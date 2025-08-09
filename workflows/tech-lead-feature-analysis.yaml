@@ -315,9 +315,9 @@ steps:
       ## Feature Analysis
       {{requirements_analysis}}
       
-      {% if gap_analysis !== 'REQUIREMENTS_COMPLETE' %}
+      {% if (gap_analysis | default('')) != 'REQUIREMENTS_COMPLETE' %}
       ## Known Gaps (for planning purposes)
-      {{gap_analysis}}
+      {{gap_analysis | default('')}}
       {% endif %}
       
       ## Task Creation Instructions
@@ -466,13 +466,13 @@ steps:
       ## Requirements Analysis Results
       {{requirements_analysis}}
       
-      {% if gap_analysis !== 'REQUIREMENTS_COMPLETE' %}
+      {% if (gap_analysis | default('')) != 'REQUIREMENTS_COMPLETE' %}
       ## Requirements Gaps Identified
-      {{gap_analysis}}
+      {{gap_analysis | default('')}}
       
       {% if clarification_questions %}
       ## Clarification Questions Generated
-      {{clarification_questions}}
+      {{clarification_questions | default('')}}
       {% endif %}
       {% endif %}
       
@@ -488,7 +488,7 @@ steps:
       {% endif %}
       
       ## Next Steps
-      {% if gap_analysis !== 'REQUIREMENTS_COMPLETE' %}
+      {% if (gap_analysis | default('')) != 'REQUIREMENTS_COMPLETE' %}
       1. **Requirements Clarification**: Address the identified gaps with stakeholders
       2. **Re-run Analysis**: Once clarifications are received, re-run this workflow
       3. **Task Creation**: Development tasks will be created after requirements are complete
