@@ -6,6 +6,7 @@ import { StepExecutor } from '../src/engine/step-executor';
 import { TemplateEngine } from '../src/templates/template-engine';
 import { Step, Context } from '../src/core/types';
 import { StepExecutionError, ValidationError } from '../src/core/errors';
+import { AIInterface } from '../src/ai';
 
 // Mock dependencies
 jest.mock('../src/templates/template-engine');
@@ -14,6 +15,7 @@ jest.mock('child_process');
 describe('StepExecutor', () => {
   let stepExecutor: StepExecutor;
   let mockTemplateEngine: jest.Mocked<TemplateEngine>;
+  let mockAIInterface: jest.Mocked<AIInterface>;
 
   const baseContext: Context = {
     inputs: { testInput: 'value' },
@@ -25,7 +27,18 @@ describe('StepExecutor', () => {
     jest.clearAllMocks();
 
     mockTemplateEngine = new TemplateEngine() as jest.Mocked<TemplateEngine>;
-    stepExecutor = new StepExecutor(mockTemplateEngine);
+    
+    // Create mock AI interface
+    mockAIInterface = {
+      sendPrompt: jest.fn(),
+      supportsStreaming: jest.fn().mockReturnValue(false),
+      getUsage: jest.fn().mockReturnValue(null),
+      resetUsage: jest.fn(),
+      validateResponse: jest.fn().mockReturnValue(true),
+      getName: jest.fn().mockReturnValue('Mock AI Interface'),
+    };
+
+    stepExecutor = new StepExecutor(mockTemplateEngine, mockAIInterface);
 
     // Default template engine mock
     mockTemplateEngine.render.mockImplementation((template, context) => {
@@ -33,6 +46,19 @@ describe('StepExecutor', () => {
       return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
         return String(context[key] || match);
       });
+    });
+
+    // Default AI interface mock
+    mockAIInterface.sendPrompt.mockResolvedValue({
+      content: 'Mock AI response',
+      agent: 'test-agent',
+      timestamp: new Date(),
+      model: 'mock-model',
+      usage: {
+        promptTokens: 10,
+        completionTokens: 20,
+        totalTokens: 30,
+      },
     });
   });
 
@@ -43,13 +69,69 @@ describe('StepExecutor', () => {
         type: 'ai-prompt',
         agent: 'test-agent',
         template: 'Process this: {{testVar}}',
+        model: 'gpt-4',
+        temperature: 0.7,
       };
 
       const result = await stepExecutor.executeStep(step, baseContext, 'session-123');
 
       expect(result.shouldContinue).toBe(true);
       expect(result.outputs).toHaveProperty('ai_response');
+      expect(result.outputs).toHaveProperty('prompt_used');
+      expect(result.outputs).toHaveProperty('agent_used');
+      expect(result.outputs).toHaveProperty('model_used');
+      expect(result.outputs).toHaveProperty('usage');
+
       expect(mockTemplateEngine.render).toHaveBeenCalledWith(step.template, baseContext.variables);
+      expect(mockAIInterface.sendPrompt).toHaveBeenCalledWith(
+        'Process this: variableValue',
+        'test-agent',
+        {
+          model: 'gpt-4',
+          temperature: 0.7,
+          maxTokens: undefined,
+        }
+      );
+
+      expect(result.outputs.ai_response).toBe('Mock AI response');
+      expect(result.outputs.agent_used).toBe('test-agent');
+      expect(result.outputs.model_used).toBe('mock-model');
+    });
+
+    it('should execute AI prompt step without template', async () => {
+      const step: Step = {
+        id: 'ai-step-no-template',
+        type: 'ai-prompt',
+        agent: 'test-agent',
+      };
+
+      const result = await stepExecutor.executeStep(step, baseContext, 'session-123');
+
+      expect(result.shouldContinue).toBe(true);
+      expect(mockAIInterface.sendPrompt).toHaveBeenCalledWith(
+        expect.stringContaining('Please assist with the following task as a test-agent'),
+        'test-agent',
+        {
+          model: undefined,
+          temperature: undefined,
+          maxTokens: undefined,
+        }
+      );
+    });
+
+    it('should handle AI prompt step failure', async () => {
+      const step: Step = {
+        id: 'ai-step-fail',
+        type: 'ai-prompt',
+        agent: 'test-agent',
+        template: 'Test prompt',
+      };
+
+      mockAIInterface.sendPrompt.mockRejectedValueOnce(new Error('AI service unavailable'));
+
+      await expect(
+        stepExecutor.executeStep(step, baseContext, 'session-123')
+      ).rejects.toThrow(StepExecutionError);
     });
 
     it('should execute script step', async () => {
